@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { buildEntry, selectVersions } from '../scripts/lib/domain/model.mjs'
+import { buildEntry } from '../scripts/lib/domain/assemble.mjs'
+import { selectVersions } from '../scripts/lib/domain/derive.mjs'
 
 /**
  * The domain is pure, so these tests are the algorithm's specification: no network, no disk, no clock.

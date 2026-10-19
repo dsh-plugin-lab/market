@@ -1,27 +1,18 @@
 /**
- * The document: published facts + curation → one format-1 index.
+ * Derive: published data → the facts about what a package actually shipped.
  *
- * Pure. No network, no disk, no clock — everything arrives as data. That is what makes the interesting
- * half of the build testable: before this split, the per-plugin assembly fetched the packument, read
- * and wrote the icon file, resolved star counts and curated the entry inside one 245-line function,
- * so nothing could be exercised without a network and a writable directory.
+ * This is the boundary between "the outside world" and "our document". Everything here turns a
+ * packument and a tarball into plain values; nothing here decides how a plugin is classified, and
+ * nothing here writes a file. The output of this module is the only shape the rest of the build knows
+ * about, which is what keeps curation and assembly free of registry details.
  *
- * Two kinds of failure, and the difference is deliberate:
- *   - a **missing** fact degrades the entry and is reported as a code (the market still works);
- *   - a **contradiction** is fatal and throws (the entry would be a lie).
+ * Two kinds of failure stay distinct:
+ *   - a **missing** fact degrades and is reported as a code (the market still works);
+ *   - a **contradiction** throws (the entry would be a lie).
  */
 import semver from 'semver'
 import { extname } from 'node:path'
-import {
-  authorOf,
-  keywordsOf,
-  localeText,
-  localizedText,
-  repositoryOf,
-  repositoryUrl,
-  slugOf,
-} from '../shared/text.mjs'
-import { curate, sortKeysOf } from './curation.mjs'
+import { authorOf, keywordsOf, localeText, localizedText, repositoryOf } from '../shared/text.mjs'
 
 const ICON_EXTENSIONS = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp'])
 
@@ -101,9 +92,7 @@ function versionRecord(name, version, packument, manifestVersion, sourceConfig, 
       )
       return undefined
     }
-    const url = repositoryUrl(
-      sourceConfig.url ?? packument.repository?.url ?? manifestVersion.repository?.url,
-    )
+    const url = repositoryOf({ url: sourceConfig.url ?? packument.repository?.url }, {})?.url
     if (url === undefined) fail(`${name}@${version}: a git source needs an https repository URL`)
     source = { type: 'git', url, commit }
     const directory =
@@ -162,14 +151,21 @@ function iconOf(name, entries, manifest, tarballUnreadable, explicit, report) {
     )
     return { icon: undefined, asset: undefined }
   }
-  const file = `icons/${slugOf(name)}${extension}`
-  return { icon: file, asset: { file, bytes } }
+  return {
+    icon: `icons/${slug(name)}${extension}`,
+    asset: { file: `icons/${slug(name)}${extension}`, bytes },
+  }
+}
+
+/** The file-system-safe name for a package: scoped names lose their scope marker. */
+function slug(name) {
+  return name.replace(/^@/u, '').replace(/[/@]/gu, '-').toLowerCase()
 }
 
 /**
- * An override is a temporary scaffold: it exists because published metadata is wrong, and it becomes
- * dead weight the moment a release fixes the source. Nobody remembers to delete it, so say so —
- * comparing against what the registry already provides is the only way to notice.
+ * A cached degradation that is no longer necessary: the override exists because published metadata
+ * was wrong, and it becomes dead weight the moment a release fixes the source. Nobody remembers to
+ * delete it, so the build says so — comparing against the registry is the only way to notice.
  */
 function reportRedundantOverrides(
   name,
@@ -207,35 +203,27 @@ function reportRedundantOverrides(
 }
 
 /**
- * One plugin entry, from data that was already fetched.
+ * Everything that is true about the package, independent of how this market classifies it.
  *
- * `entries` is the published tarball's file map, or `undefined` when it could not be read — in which
- * case the registry's own text is used and `tarballUnreadable` keeps the four consequences from being
- * reported as four separate causes.
+ * `tarball` is `{ entries, bytes }` when the fetch succeeded and `{ unreadable }` when it did not —
+ * the difference is carried as data, so nothing downstream has to infer "no locale" from a missing
+ * map, which would turn one network failure into four data defects.
  */
-export function buildEntry({
-  name,
-  config,
-  packument,
-  tarball,
-  explicit,
-  settings,
-  starsFor,
-  report,
-}) {
+export function deriveFacts({ name, explicit, settings, packument, tarball, report }) {
   const entries = tarball.entries
   const fetchFailed = tarball.unreadable !== undefined
   const selected = selectVersions(name, packument, settings, report)
   const sourceConfig = explicit.source ?? { type: 'npm' }
   const newest = selected[0]
   const newestManifest = packument.versions[newest]
-  const tarballUnreadable = fetchFailed
 
-  if (tarballUnreadable) {
+  if (fetchFailed) {
     report(
       'tarball-unreadable',
       `${name}: the ${newest} tarball is unreadable — falling back to registry text`,
-      { plugin: name },
+      {
+        plugin: name,
+      },
     )
   }
   const manifest = entries?.has('package/package.json')
@@ -256,9 +244,9 @@ export function buildEntry({
   }
   if (versions.length === 0) fail(`${name}: no listed version could be described`)
 
-  // One unreadable tarball already says why the display text and the icon are missing; reporting the
+  // One unreadable tarball already says why the text and the icon are missing; reporting the
   // consequences separately would turn one cause into several codes and hide the cause in the noise.
-  const locale = tarballUnreadable
+  const locale = fetchFailed
     ? { titles: {}, descriptions: {}, languages: [] }
     : localeText(report, entries)
   const title = localizedText(report, explicit.title, locale.titles, undefined)
@@ -271,7 +259,7 @@ export function buildEntry({
   if (title === undefined)
     report('title-missing', `${name}: no title in any language — the index shows the package name`)
 
-  const { icon, asset } = iconOf(name, entries, manifest, tarballUnreadable, explicit, report)
+  const { icon, asset } = iconOf(name, entries, manifest, fetchFailed, explicit, report)
 
   const repository = repositoryOf(explicit.repository ?? packument.repository, {})
   if (repository === undefined && packument.repository !== undefined) {
@@ -282,36 +270,23 @@ export function buildEntry({
     )
   }
 
-  const keywords = keywordsOf(settings, packument.keywords, explicit.keywords, [name])
-  const { category, labels } = curate(name, config, settings, keywords)
-  const sortKeys = sortKeysOf(explicit, { repository, starsFor, report })
-
   const homepage = typeof explicit.homepage === 'string' ? explicit.homepage : packument.homepage
   const author = authorOf(explicit.author) ?? authorOf(packument.author)
   reportRedundantOverrides(name, { explicit, packument, repository, homepage, author }, report)
 
   return {
-    plugin: {
-      name,
-      ...(title === undefined ? {} : { title }),
-      ...(description === undefined ? {} : { description }),
-      ...(icon === undefined ? {} : { icon }),
-      ...(author === undefined ? {} : { author }),
-      ...(typeof homepage === 'string' && homepage.trim() !== '' && URL.canParse(homepage)
-        ? { homepage: homepage.trim() }
-        : {}),
-      ...(repository === undefined ? {} : { repository }),
-      metadata: {
-        ...(category === undefined ? {} : { category }),
-        keywords,
-        labels,
-        sortKeys,
-      },
-      versions,
-    },
+    name,
     newest,
+    title,
+    description,
+    icon,
+    asset,
+    author,
+    homepage,
+    repository,
+    versions,
     languages: locale.languages,
-    assets: asset === undefined ? [] : [asset],
+    keywords: keywordsOf(settings, packument.keywords, explicit.keywords, [name]),
     fetchedBytes: tarball.bytes ?? 0,
   }
 }

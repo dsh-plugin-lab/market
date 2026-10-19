@@ -74,23 +74,38 @@
    卡了两周（npm 授权过期）。`pnpm run drift` 会读组织各仓的 `package.json` 与 registry 比对，漂移时后台自动开
    固定标题 issue，恢复后自动关。**它只报告，不自动改**：发版与上架是人的决定。
 
+## 手写面与生成物
+
+一个文件只属于下面两类之一。**手写的只有这四样**，其余都是产物或工程配置。
+
+| 手写                                                     | 改它会发生什么                                 | 谁判它                                                            |
+| -------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------- |
+| [`plugins.txt`](plugins.txt)                             | 名录与展示顺序变化                             | 不是 npm 包名 → build 失败；包在 registry 上不存在 → build 失败   |
+| [`config.json`](config.json)                             | 标题、分类、标签、排序键、覆盖、build 开关变化 | 引用未声明的 id → build 失败；覆盖与源重复 → `override-redundant` |
+| [`diagnostics-baseline.json`](diagnostics-baseline.json) | 把某个降级「接受」为已知                       | 出现基线外的 code → `check` 红                                    |
+| 文档（`README*`、`AGENTS.md`、`docs/`、`scripts/*.md`）  | 只影响人，不影响索引                           | 链接检查、双语结构对齐                                            |
+
+生成物：`public/`（部署产物）、`build/`（诊断与核对中间物），两者都 gitignored、都不许手改 ——
+build 每次先整个删掉再写。工程配置（`package.json`、`pnpm-lock.yaml`、workflow、`.pre-commit-config.yaml`）
+不属于「内容」，改它们按下面的「验证方式」走。
+
 ## 文档地图
 
 一份文件只干一件事，改之前先确认它的 home。
 
-| 文件                                                   | 身份（谁读它）                                                          |
-| ------------------------------------------------------ | ----------------------------------------------------------------------- |
-| [README.md](README.md) · [中文](README_zh.md)          | 门面：怎么加索引源、列哪些插件（任何打开本仓的人）                      |
-| [AGENTS.md](AGENTS.md)                                 | 本仓规则层：命令、规则、运营坑（在这里干活的维护者与 agent）            |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | 设计决策：为什么读 npm 不读插件仓、降级为什么不在产物里、为什么三个 job |
-| [docs/market-format.md](docs/market-format.md)         | 产物契约：format 1 每个字段的来源与约束，含完整示例                     |
-| [config.json](config.json)                             | 策展入口：标题、声明、每插件 curation、build 开关                       |
-| [plugins.txt](plugins.txt)                             | 名录与默认顺序                                                          |
-| [diagnostics-baseline.json](diagnostics-baseline.json) | 已接受的降级 code；新增一条降级要在这里显式登记                         |
-| [scripts/](scripts/)                                   | 生成、校验、线上核对、组织漂移四个脚本；纯逻辑在 `scripts/lib/`         |
-| [test/](test/)                                         | 脚本的单元测试（无网络、无时钟）                                        |
-| `.github/workflows/build-market.yml`                   | 何时跑、失败与漂移怎么报、怎么发到 Pages、发完怎么核验                  |
-| [.pre-commit-config.yaml](.pre-commit-config.yaml)     | 提交前跑什么（只放秒级、无需网络的）                                    |
+| 文件                                                                    | 身份（谁读它）                                                          |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [README.md](README.md) · [中文](README_zh.md)                           | 门面：怎么加索引源、列哪些插件（任何打开本仓的人）                      |
+| [AGENTS.md](AGENTS.md)                                                  | 本仓规则层：命令、规则、运营坑（在这里干活的维护者与 agent）            |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                            | 设计决策：为什么读 npm 不读插件仓、降级为什么不在产物里、为什么三个 job |
+| [docs/market-format.md](docs/market-format.md)                          | 产物契约：format 1 每个字段的来源与约束，含完整示例                     |
+| [config.json](config.json)                                              | 策展入口：标题、声明、每插件 curation、build 开关                       |
+| [plugins.txt](plugins.txt)                                              | 名录与默认顺序                                                          |
+| [diagnostics-baseline.json](diagnostics-baseline.json)                  | 已接受的降级 code；新增一条降级要在这里显式登记                         |
+| [scripts/README.md](scripts/README.md) · [AGENTS.md](scripts/AGENTS.md) | 模块定位索引（数据怎么流、改哪波及谁）与改码规则                        |
+| [test/](test/)                                                          | 脚本的单元测试（无网络、无时钟）                                        |
+| `.github/workflows/build-market.yml`                                    | 何时跑、失败与漂移怎么报、怎么发到 Pages、发完怎么核验                  |
+| [.pre-commit-config.yaml](.pre-commit-config.yaml)                      | 提交前跑什么（只放秒级、无需网络的）                                    |
 
 三条边界（越界即缺陷）：
 
