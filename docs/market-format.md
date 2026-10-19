@@ -1,13 +1,17 @@
 # Market index format 1 — field reference
 
+**This is the contract for the produced file.** Every field, where it comes from, and the constraint
+the reader enforces. Design reasoning is in [ARCHITECTURE.md](ARCHITECTURE.md); how to run the build
+is in [AGENTS.md](../AGENTS.md). A constraint stated here is stated once — nothing else in this
+repository repeats it.
+
 `public/index.json` is the file DSH reads when a user adds
-`https://dsh-plugin-lab.github.io/market/index.json` under **插件 → 发现 → 添加索引源**. This document
-records what each member means, where it comes from, and the constraint the reader enforces.
+`https://dsh-plugin-lab.github.io/market/index.json` under **插件 → 发现 → 添加索引源**.
 
 **It is generated output.** Nobody edits it by hand: `scripts/build-index.mjs` deletes `public/` and
 writes it again from `plugins.txt`, `config.json` and npm, and `scripts/check-index.mjs` runs the
 official `parseMarketIndex` from `@deepseek-ai/dsh-plugin-market-index` over the result. To change a
-value, change an input — [README.md](../README.md) says which input owns which field.
+value, change an input — [ARCHITECTURE.md](ARCHITECTURE.md) says which input owns which field.
 
 The format is defined by the plugin market index format Agent Note; the validator in
 `@deepseek-ai/dsh-plugin-market-index` is the executable definition, and this document follows it.
