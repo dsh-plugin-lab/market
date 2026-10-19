@@ -20,7 +20,6 @@
  * lets the interesting half be tested without a network, and it is why star counts are resolved for a
  * whole plugin at once instead of lazily in the middle of curation.
  */
-import { createHash } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -29,6 +28,7 @@ import { buildEntry } from './lib/domain/assemble.mjs'
 import { pruneMetadata, starTargets } from './lib/domain/curation.mjs'
 import { findUndefinedMembers } from './lib/domain/contract.mjs'
 import { ROOT, info, ok, reportFatal } from './lib/shared/cli.mjs'
+import { digestOf } from './lib/shared/digest.mjs'
 import { repositoryOf } from './lib/shared/text.mjs'
 import { latestDsh, packument, tarballEntries } from './lib/sources/npm.mjs'
 import { starReader } from './lib/sources/github.mjs'
@@ -212,7 +212,7 @@ async function main() {
   // The index's own digest. This — not a timestamp — is what proves a deployment served *this* build:
   // two builds a second apart produce different times and identical bytes, and a cached response
   // produces an old time with old bytes. Only the hash answers "is the live copy this content?".
-  const contentHash = `sha256:${createHash('sha256').update(serialised).digest('hex')}`
+  const contentHash = digestOf(serialised)
 
   let dsh
   try {

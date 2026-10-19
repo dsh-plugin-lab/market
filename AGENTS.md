@@ -73,6 +73,10 @@
 8. **「合并了但没发版」市场看不见。** 索引是 npm 的快照，仓库领先 npm 时所有检查都正确且全绿——workbuddy 就这样
    卡了两周（npm 授权过期）。`pnpm run drift` 会读组织各仓的 `package.json` 与 registry 比对，漂移时后台自动开
    固定标题 issue，恢复后自动关。**它只报告，不自动改**：发版与上架是人的决定。
+9. **一轮构建的时间主要花在一个包的体积上，不在代码里。** 实测：四个 tarball 共约 4.8MB，其中
+   `dsh-plugin-debugging` 一个占 4.4MB（包内 `assets/banner.gif` 约 4MB），单次下载 16s；其余三个各 100–170KB。
+   `status.json` 的 `plugins[].fetchedBytes` 会把这个数字打出来。想再快得从**插件仓的 `files` / `.npmignore`**
+   下手，市场侧改不了；也不要为此加缓存——那会给「构建是投影」这条性质引入状态。
 
 ## 手写面与生成物
 

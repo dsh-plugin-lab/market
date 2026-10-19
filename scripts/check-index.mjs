@@ -15,7 +15,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
 import semver from 'semver'
-import { ENVIRONMENTAL } from './lib/domain/diagnosis.mjs'
+import { ratchet } from './lib/domain/diagnosis.mjs'
 import { findUndefinedMembers } from './lib/domain/contract.mjs'
 import { latestDsh } from './lib/sources/npm.mjs'
 import { ROOT, flag, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
@@ -126,30 +126,25 @@ async function main() {
   const diagnostics = await readDiagnostics()
   if (diagnostics !== undefined) {
     const baseline = await readBaseline()
-    const ratcheted = diagnostics.codes.filter((code) => !ENVIRONMENTAL.has(code))
-    const environmental = diagnostics.codes.filter((code) => ENVIRONMENTAL.has(code))
-    const current = new Set(ratcheted)
-    const allowed = new Set(baseline.filter((code) => !ENVIRONMENTAL.has(code)))
-    for (const code of ratcheted) {
-      if (!allowed.has(code)) {
-        const items = diagnostics.items.filter((item) => item.code === code)
-        const context = items
-          .slice(0, 3)
-          .map((item) => [item.plugin, item.version].filter(Boolean).join('@') || item.message)
-          .join('; ')
-        error(
-          `new diagnostic ${code} (${items.length}x) — ${context}. Understand it, then add "${code}" to diagnostics-baseline.json or fix the cause`,
-        )
-      }
+    // The comparison is a pure decision (`ratchet`); the wording and the volume of each outcome are
+    // this command's business, because deciding what is loud belongs to the entry point.
+    const { added, removed, ignored } = ratchet(diagnostics.codes, baseline)
+    for (const code of added) {
+      const items = diagnostics.items.filter((item) => item.code === code)
+      const context = items
+        .slice(0, 3)
+        .map((item) => [item.plugin, item.version].filter(Boolean).join('@') || item.message)
+        .join('; ')
+      error(
+        `new diagnostic ${code} (${items.length}x) — ${context}. Understand it, then add "${code}" to diagnostics-baseline.json or fix the cause`,
+      )
     }
-    for (const code of allowed) {
-      if (!current.has(code)) {
-        warn(
-          `diagnostics-baseline.json lists "${code}", but this build did not emit it — remove it from the baseline`,
-        )
-      }
+    for (const code of removed) {
+      warn(
+        `diagnostics-baseline.json lists "${code}", but this build did not emit it — remove it from the baseline`,
+      )
     }
-    for (const code of environmental) {
+    for (const code of ignored) {
       warn(`${code}: environment-dependent, reported but not ratcheted (no GitHub token?)`)
     }
     info(
@@ -179,8 +174,7 @@ async function main() {
   }
 
   console.log('')
-  const dshFlag = process.argv.indexOf('--dsh')
-  const dsh = await currentDsh(dshFlag === -1 ? undefined : process.argv[dshFlag + 1])
+  const dsh = await currentDsh(flag('dsh', undefined))
   if (dsh !== undefined) info(`compatibility measured against DSH ${dsh}`)
 
   // Widths are measured, not fixed: a declared range grows every time upstream opens another
@@ -233,7 +227,4 @@ async function main() {
   ok(`${index.plugins.length} plugin(s) valid, no dropped members, every icon present`)
 }
 
-main().catch((failure) => {
-  console.error(`  [ERR]  ${failure.message}`)
-  process.exitCode = 1
-})
+main().catch(reportFatal)

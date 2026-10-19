@@ -14,22 +14,17 @@
  * old time with old bytes, and only the hash distinguishes "the deployment served this content" from
  * "it served the previous generation at some earlier moment".
  */
-import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
 import { ROOT, flag, info, ok, reportFatal } from './lib/shared/cli.mjs'
+import { digestOf } from './lib/shared/digest.mjs'
 import { json, request } from './lib/shared/http.mjs'
 import { MarketIndexError, parseMarketIndex } from '@deepseek-ai/dsh-plugin-market-index'
 
 const problems = []
 const error = (message) => problems.push(message)
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
-
-/** The digest of a body, in the same shape `status.json` publishes. */
-function digestOf(bytes) {
-  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`
-}
 
 /** The response body as bytes: a digest has to be taken over exactly what a reader receives. */
 const fetchBytes = async (url) =>

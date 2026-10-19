@@ -6,7 +6,37 @@ import {
   ENVIRONMENTAL,
   ENVIRONMENTAL_CODES,
   SEVERITY,
+  ratchet,
 } from '../scripts/lib/domain/diagnosis.mjs'
+
+test('the ratchet reports a new degradation, a dead allowance, and ignores the environment', () => {
+  const { added, removed, ignored } = ratchet(
+    ['locale-missing', 'stars-unavailable'],
+    ['icon-extension'],
+  )
+  assert.deepEqual(added, ['locale-missing'])
+  assert.deepEqual(removed, ['icon-extension'])
+  assert.deepEqual(ignored, ['stars-unavailable'])
+})
+
+test('the ratchet is a set, so the same degradation on another plugin is not a regression', () => {
+  const first = ratchet(['locale-missing'], ['locale-missing'])
+  const second = ratchet(['locale-missing'], ['locale-missing'])
+  assert.deepEqual(first, second)
+  assert.deepEqual(first.added, [])
+})
+
+test('an accepted code that stops being emitted is reported, so the baseline cannot rot', () => {
+  const { removed } = ratchet([], ['tarball-unreadable', 'title-missing'])
+  assert.deepEqual(removed, ['tarball-unreadable', 'title-missing'])
+})
+
+test('an environmental code in the baseline is never demanded nor reported', () => {
+  const { added, removed, ignored } = ratchet([], ['stars-unavailable'])
+  assert.deepEqual(added, [])
+  assert.deepEqual(removed, [])
+  assert.deepEqual(ignored, [])
+})
 
 test('every documented code is unique and carries a description', () => {
   for (const [code, description] of Object.entries(CODES)) {

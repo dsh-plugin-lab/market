@@ -16,6 +16,10 @@
 - **严格性只在入口层声明**：同一个 `tarball-unreadable`，在 `build` 是降级、在 `check` 是棘轮。
   库不替入口决定。
 - **契约表只有一份**：`domain/contract.mjs` 同时供 build（写之前自查）与 check（校验）使用。
+- **哈希只有一种实现**：`shared/digest.mjs`。build 用它生成 `status.json` 的 `content.hash`，verify
+  用它判断线上；两处各写一遍，就会出现「同字节不同哈希」，表现得和部署失败一模一样。
+- **棘轮是集合比较，不是计数**：同一降级换了插件不算回归，多一个才算。比较逻辑住
+  `domain/diagnosis.mjs` 的 `ratchet()`，措辞与严重度归命令层。
 
 ## 改动的验收
 

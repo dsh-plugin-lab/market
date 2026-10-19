@@ -108,3 +108,28 @@ export class Diagnostics {
     }
   }
 }
+
+/**
+ * Compare what this build degraded with what this repository has accepted.
+ *
+ * A ratchet turns one way only: a degradation either is in the accepted set or it is new, and new ones
+ * fail the build. Written as a set comparison rather than a count on purpose — the same degradation
+ * moving from one plugin to another is not a regression, an extra one is.
+ *
+ * Three groups come back, and the caller decides how loudly to report each (that decision is the
+ * command layer's, not this function's):
+ *
+ *   - `added`   — emitted but not accepted: a new silent loss, to be explained or fixed;
+ *   - `removed` — accepted but no longer emitted: the baseline carries an allowance nobody needs;
+ *   - `ignored` — environment-dependent: reported, never compared.
+ */
+export function ratchet(codes, baseline) {
+  const ignored = codes.filter((code) => ENVIRONMENTAL.has(code))
+  const current = new Set(codes.filter((code) => !ENVIRONMENTAL.has(code)))
+  const accepted = new Set(baseline.filter((code) => !ENVIRONMENTAL.has(code)))
+  return {
+    added: [...current].filter((code) => !accepted.has(code)).sort(),
+    removed: [...accepted].filter((code) => !current.has(code)).sort(),
+    ignored: [...ignored].sort(),
+  }
+}
