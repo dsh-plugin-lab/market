@@ -49,6 +49,7 @@ npm / GitHub / Pages          外部世界
 | `shared/http.mjs`      | 唯一的取数策略（重试、超时、是否跟随重定向）        | 不判断响应内容是什么         |
 | `shared/tar.mjs`       | 极简 ustar 读取器：三种路径承载方式 + 截断保护      | 不认识 npm，不认识包内容     |
 | `shared/text.mjs`      | 把 registry / manifest 的值变成 format-1 的值       | 不发请求、不写盘             |
+| `shared/digest.mjs`    | 内容身份：一个文档的 sha256（build 与 verify 共用） | 不知道什么内容算「新」       |
 | `sources/npm.mjs`      | packument、tarball（含字节数）、最新 DSH 版本       | 不决定「读不到怎么办」       |
 | `sources/github.mjs`   | 星标（带缓存）、组织仓清单、某仓的 manifest         | 同上                         |
 | `sources/pages.mjs`    | 线上索引（带绕缓存参数）                            | 不比较、不判定               |
@@ -56,7 +57,7 @@ npm / GitHub / Pages          外部世界
 | `domain/curation.mjs`  | **纯**：事实 + `config.json` → 分类/标签/排序键     | 不发起网络请求               |
 | `domain/assemble.mjs`  | **纯**：事实 + 决策 → format-1 条目                 | 不重新推导任何字段           |
 | `domain/contract.mjs`  | format-1 允许的成员表 + 遍历（build 与 check 共用） | 不判断「该不该致命」         |
-| `domain/diagnosis.mjs` | 降级码 + 每个码的 severity（唯一声明处）            | 不决定某个码在某个入口算什么 |
+| `domain/diagnosis.mjs` | 降级码 + 每个码的 severity + 棘轮比较（纯函数）     | 不决定某个码在某个入口算什么 |
 
 ## 变更影响路由
 
