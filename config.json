@@ -77,11 +77,7 @@
     "dsh-workbuddy-bridge": {
       "category": "models",
       "labels": ["local", "zero-config"],
-      "sortKeys": { "stars": { "githubStars": "dsh-plugin-lab/dsh-workbuddy-bridge" } },
-      "repository": {
-        "url": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge"
-      },
-      "homepage": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge#readme"
+      "sortKeys": { "stars": { "githubStars": true } }
     }
   }
 }

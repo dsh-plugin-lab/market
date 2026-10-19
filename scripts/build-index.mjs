@@ -425,12 +425,44 @@ async function buildPlugin(name, config, settings, stars) {
     )
   }
 
+  // An override is a temporary scaffold: it exists because the published metadata is wrong, and it
+  // becomes dead weight the moment a release fixes the source. Nobody remembers to delete it, so say
+  // so. Comparing against what the registry already provides is the only way to notice.
+  if (explicit.repository !== undefined) {
+    const derived = repositoryOf(packument.repository, {})
+    if (JSON.stringify(derived) === JSON.stringify(repository)) {
+      warn(
+        'override-redundant',
+        `${name}: config.json overrides "repository", but the registry already publishes the same value — delete the override`,
+        { plugin: name, field: 'repository' },
+      )
+    }
+  }
+
   const keywords = keywordsOf(settings, packument.keywords, explicit.keywords, [name])
   const { category, labels } = curate(name, config, settings, keywords)
   const sortKeys = await sortKeysOf(explicit, repository, stars)
 
   const homepage = typeof explicit.homepage === 'string' ? explicit.homepage : packument.homepage
+  if (
+    typeof explicit.homepage === 'string' &&
+    typeof packument.homepage === 'string' &&
+    explicit.homepage === packument.homepage
+  ) {
+    warn(
+      'override-redundant',
+      `${name}: config.json overrides "homepage", but the registry already publishes the same value — delete the override`,
+      { plugin: name, field: 'homepage' },
+    )
+  }
   const author = authorOf(explicit.author) ?? authorOf(packument.author)
+  if (explicit.author !== undefined && authorOf(explicit.author) === authorOf(packument.author)) {
+    warn(
+      'override-redundant',
+      `${name}: config.json overrides "author", but the registry already publishes the same value — delete the override`,
+      { plugin: name, field: 'author' },
+    )
+  }
 
   return {
     plugin: {
