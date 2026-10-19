@@ -34,9 +34,13 @@
 - **声明面成对改。** 给插件写 `category` / `labels` / 排序键 id，必须同时在根 `metadata` 里声明同名项，
   否则 build 直接失败（不是警告）。反方向：`build.pruneUnusedMetadata` 默认开着，声明了却没人用的项
   会被丢掉并留一条 WARN —— 看到那条 WARN，说明要么该删声明，要么该给插件补上引用。
-- **语言策略。** 对外渲染的文件是英文（`README.md`、`docs/`），维护者是中文（本文件）。
-  索引里的每个 `LocalizedText` 都**必须带 `en`**，语言 id 全小写（`en` / `zh` / `zh-cn`）。
-  `config.json` 的 `market.title`、`market.description` 会**原样**进索引，所以同样受这条约束。
+- **语言策略。** 门面双语两件：`README.md`（英文）与 `README_zh.md`（中文），首行互链，格式照组织主页
+  （`dsh-plugin-lab/.github` 的 `profile/README.md`）。**两件同改**：改一份就同改另一份，标题层级与代码块
+  逐一对齐。`docs/` 只英文；本文件只中文。索引里的每个 `LocalizedText` 都**必须带 `en`**，语言 id 全小写
+  （`en` / `zh` / `zh-cn`）。`config.json` 的 `market.title`、`market.description` 会**原样**进索引，
+  所以同样受这条约束。
+- **门面不写死数量和插件名。** 插件清单只指向组织仓 <https://github.com/dsh-plugin-lab>，由那边自己维护；
+  在 README 里抄一份名字或「共 N 个插件」，就多了一处会过期的真源。**URL 是唯一要写死的东西。**
 - **校验必须过 `check`。** 它是官方 `parseMarketIndex` 的执行体，规则与用户机上 DSH 读到的一致；
   本地绿说明线上不会被拒。但绿只说明**格式**合法，不说明**内容**对（见「活跃坑」第 2、9 条）。
 - **本仓不发版、不出包。** `private: true`，产物是 Pages 上的静态文件；版本与发布归各插件仓。
@@ -88,7 +92,7 @@
 
 | 文件                                                                                                    | 它的身份（谁读它）                                                      |
 | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [README.md](README.md)                                                                                  | 门面：这是什么、用户填哪个 URL、加插件步骤（任何打开本仓的人）          |
+| [README.md](README.md) · [中文](README_zh.md)                                                           | 门面：这是什么、用户填哪个 URL、怎么加索引源（任何打开本仓的人）        |
 | [AGENTS.md](AGENTS.md)                                                                                  | 本仓特有：命令、规则、活跃坑（在本仓干活的维护者与 agent）              |
 | [docs/market-format.md](docs/market-format.md)                                                          | 产物的字段参考（format 1）含完整示例（改 `scripts/`、排查线上索引的人） |
 | [config.json](config.json)                                                                              | 策展入口：标题、声明、每插件 curation、build 开关（加插件、改分类的人） |
