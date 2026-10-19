@@ -50,7 +50,7 @@
     "includePrerelease": true,
     "maxVersionsPerPlugin": 0,
     "keywordBlocklist": ["dsh", "deepseek-harness", "dsh-plugin"],
-    "maxKeywords": 12,
+    "maxKeywords": 13,
     "pruneUnusedMetadata": true
   },
   "keywordRules": {
