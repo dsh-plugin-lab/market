@@ -9,11 +9,16 @@
 #   - `push` on main, on the files that define the index, so a curation change goes live immediately;
 #   - `pull_request`, so a curation change is validated *before* it can reach main (build only, no deploy);
 #   - `workflow_dispatch`, for a rebuild after a plugin release;
-#   - `schedule`, every six hours, because a publish changes nothing in this repository.
+#   - `schedule`, hourly, because a publish changes nothing in this repository.
 #
 # Build and deploy are separate jobs on purpose: the deploy job is the only one that holds a Pages
 # environment and a write scope, so a pull request can run the whole build and validation with a
 # read-only token and never touch the live site.
+#
+# Deployment is also skipped when `index.json` is byte-identical to what is already live. That keeps
+# the deployment history meaningful ("the content changed here") instead of 24 identical deploys a
+# day, and it is why `status.json` carries a `builtAt` — to answer "how old is this index?" the
+# deployment history no longer does.
 #
 # The deploy publishes `public/` as an artifact rather than committing the index back here: the index
 # is a function of plugins.txt + config.json + what npm publishes, and a committed copy would be a
@@ -40,13 +45,13 @@ on:
       - '.github/workflows/build-market.yml'
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 * * * *'
 
 permissions:
   contents: read
 
 # One deployment at a time, and never cancel one that is already running: a half-deployed Pages
-# site is worse than a late one.
+# site is worse than a late one. Hourly and push runs queue behind each other rather than racing.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -54,6 +59,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    permissions:
+      contents: read
+      # The failure report below opens or comments on an issue. Nothing else in this job writes.
+      issues: write
     steps:
       - uses: actions/checkout@v7
 
@@ -84,15 +95,68 @@ jobs:
       - name: Validate the index
         run: pnpm run check
 
+      # Compare against what readers are being served right now. A failed fetch means "deploy", not
+      # "skip": a stale live copy is worse than a redundant deployment.
+      - name: Compare with the live index
+        id: compare
+        run: |
+          url=$(jq -r '.market.indexUrl' config.json)
+          built=$(sha256sum public/index.json | cut -d' ' -f1)
+          live=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1 || true)
+          if [ -n "$live" ] && [ "$live" = "$built" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "the index is unchanged; the deployment is skipped"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "the index changed; it will be deployed"
+          fi
+
       - name: Upload the site
         uses: actions/upload-pages-artifact@v5
         with:
           path: public
 
+      # A scheduled failure notifies only whoever last edited the cron line, so a silent index is the
+      # default outcome of a silent failure. This keeps one fixed-title issue as the visible home for
+      # that failure instead, and closes it again when a later run succeeds.
+      - name: Report a failed build
+        if: failure() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: '[market] the index build is failing'
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --template '{{range .}}{{.number}}{{"\t"}}{{.title}}{{"\n"}}{{end}}' \
+            | awk -F'\t' -v t="$TITLE" '$2==t{print $1; exit}')
+          body=$(printf 'The build that publishes the market index failed.\n\n- run: %s\n- trigger: `%s`\n- commit: `%s`\n\nThe live index is unchanged — the previous one is still being served. Read the failed step, fix the cause, then re-run the workflow.\n\nThis issue is commented by every later failure and closed by the next success; do not file a new one.' \
+            "$RUN" "$GITHUB_EVENT_NAME" "$GITHUB_SHA")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body"
+          fi
+
+      - name: Close the failure issue
+        if: success() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: '[market] the index build is failing'
+        run: |
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --template '{{range .}}{{.number}}{{"\t"}}{{.title}}{{"\n"}}{{end}}' \
+            | awk -F'\t' -v t="$TITLE" '$2==t{print $1; exit}')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" \
+              --body "A later run succeeded, so the index is being built again."
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY"
+          fi
+
   deploy:
     needs: build
-    # A pull request gets the build and the validator, and nothing else.
-    if: github.event_name != 'pull_request'
+    # A pull request gets the build and the validator, and nothing else. An unchanged index gets no
+    # deployment, which is a deliberate skip rather than a false green: the `build` job is the judge.
+    if: github.event_name != 'pull_request' && needs.build.outputs.changed == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

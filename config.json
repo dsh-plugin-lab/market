@@ -47,8 +47,8 @@
     }
   },
   "build": {
-    "includePrerelease": true,
-    "maxVersionsPerPlugin": 0,
+    "includePrerelease": false,
+    "maxVersionsPerPlugin": 1,
     "keywordBlocklist": ["dsh", "deepseek-harness", "dsh-plugin"],
     "maxKeywords": 12,
     "pruneUnusedMetadata": true

@@ -89,12 +89,25 @@ function normaliseSettings(config) {
   const build = config.build ?? {}
   return {
     indexUrl: market.indexUrl ?? 'https://dsh-plugin-lab.github.io/market/index.json',
-    includePrerelease: build.includePrerelease ?? true,
-    maxVersionsPerPlugin: build.maxVersionsPerPlugin ?? 0,
+    includePrerelease: build.includePrerelease ?? false,
+    maxVersionsPerPlugin: build.maxVersionsPerPlugin ?? 1,
     keywordBlocklist: new Set((build.keywordBlocklist ?? []).map((word) => word.toLowerCase())),
     maxKeywords: build.maxKeywords ?? 12,
     pruneUnusedMetadata: build.pruneUnusedMetadata ?? true,
     keywordRules: config.keywordRules ?? {},
+  }
+}
+
+/** The newest published DSH, recorded in `status.json` so "is this index current?" has an answer. */
+async function latestDsh() {
+  try {
+    const packument = await getJson(`${NPM}/@deepseek-ai%2Fdsh`, {
+      accept: 'application/vnd.npm.install-v1+json',
+    })
+    return packument['dist-tags']?.latest
+  } catch (error) {
+    warn(`could not read the current DSH version (${error.message})`)
+    return undefined
   }
 }
 
@@ -389,10 +402,20 @@ async function buildPlugin(name, config, settings, stars) {
     if (settings.maxVersionsPerPlugin > 0 && selected.length >= settings.maxVersionsPerPlugin) break
     selected.push(version)
   }
-  if (selected.length === 0) fail(`${name}: no version survives the build filters`)
+  if (selected.length === 0) {
+    // A package that has only ever published prereleases is not a reason to take the market down.
+    selected.push(published[0])
+    warn(
+      `${name}: no stable version is published, so ${published[0]} (a prerelease) is listed instead`,
+    )
+  }
   const latestTagged = packument['dist-tags']?.latest
   if (typeof latestTagged === 'string' && !selected.includes(latestTagged)) {
-    fail(`${name}: the "latest" tag (${latestTagged}) is not among the listed versions`)
+    const message = `${name}: the "latest" tag (${latestTagged}) is not among the listed versions`
+    // A stable `latest` that is missing means this build dropped the newest release — a defect.
+    // A prerelease `latest` is simply excluded by a stable-only policy, which is not a defect.
+    if (semver.prerelease(latestTagged) === null) fail(message)
+    else warn(`${message} — it is a prerelease, and this build lists stable versions only`)
   }
 
   const explicit = config.plugins?.[name] ?? {}
@@ -638,6 +661,18 @@ async function main() {
   }
 
   await writeFile(join(OUT, 'index.json'), `${JSON.stringify(index, null, 2)}\n`, 'utf8')
+
+  // A build heartbeat, separate from the index because format 1 has no member for it. Deployment
+  // happens only when `index.json` changed, so `builtAt` is also "when this content last changed".
+  const dsh = await latestDsh()
+  const status = {
+    builtAt: new Date().toISOString(),
+    plugins: plugins.length,
+    versions: plugins.reduce((total, plugin) => total + plugin.versions.length, 0),
+    ...(dsh === undefined ? {} : { dsh }),
+    warnings: warnings.length,
+  }
+  await writeFile(join(OUT, 'status.json'), `${JSON.stringify(status, null, 2)}\n`, 'utf8')
 
   console.log('')
   console.log(

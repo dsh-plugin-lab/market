@@ -10,7 +10,7 @@ https://dsh-plugin-lab.github.io/market/index.json
 ```
 
 What a user gets from it is one list: every plugin in the organization, with its localized name and
-description, icon, repository, and each published version together with its publish time, install
+description, icon, repository, and the newest stable version together with its publish time, install
 source and DSH compatibility range. The index is metadata only — the code is installed from npm.
 
 ## What this repository is
@@ -45,16 +45,16 @@ for facts npm already publishes.
 
 ## What it contains
 
-| Path                                 | Role                                                                                         |
-| ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `plugins.txt`                        | The npm package names, one per line. **Its order is the index order**                        |
-| `config.json`                        | All manual curation: market title, declarations, per-plugin curation, overrides, build knobs |
-| `scripts/build-index.mjs`            | Reads both inputs plus npm; writes `public/index.json` and `public/icons/*`                  |
-| `scripts/check-index.mjs`            | Validates the output with `parseMarketIndex`, and flags members the format lacks             |
-| `docs/market-format.md`              | Field-by-field reference for the produced `index.json`                                       |
-| `AGENTS.md`                          | Rules for working in this repository (Chinese, maintainer-facing)                            |
-| `.github/workflows/build-market.yml` | When the build runs, and the deployment of `public/` to Pages                                |
-| `public/`                            | Build output. Gitignored, deployed as an artifact, never committed                           |
+| Path                                 | Role                                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `plugins.txt`                        | The npm package names, one per line. **Its order is the index order**                          |
+| `config.json`                        | All manual curation: market title, declarations, per-plugin curation, overrides, build knobs   |
+| `scripts/build-index.mjs`            | Reads both inputs plus npm; writes `public/index.json`, `public/status.json`, `public/icons/*` |
+| `scripts/check-index.mjs`            | Validates the output with `parseMarketIndex`, and flags members the format lacks               |
+| `docs/market-format.md`              | Field-by-field reference for the produced `index.json`                                         |
+| `AGENTS.md`                          | Rules for working in this repository (Chinese, maintainer-facing)                              |
+| `.github/workflows/build-market.yml` | When the build runs, and the deployment of `public/` to Pages                                  |
+| `public/`                            | Build output. Gitignored, deployed as an artifact, never committed                             |
 
 ## The three sources of truth
 
@@ -72,7 +72,7 @@ Which bucket a field falls into (rows are plugin fields unless marked otherwise)
 | ------------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------- |
 | membership and order                                                                 | curated        | `plugins.txt`                                                 |
 | `name`                                                                               | curated        | the line in `plugins.txt`                                     |
-| `versions[]`, `publishTimestamp`                                                     | automatic      | registry `versions` and `time`                                |
+| `versions[]`, `publishTimestamp`                                                     | automatic      | registry `versions` and `time`; only the newest stable one    |
 | `source`                                                                             | automatic      | npm by default; `git` pins the registry `gitHead`             |
 | `engines.dsh`                                                                        | automatic      | registry manifest `engines.dsh`                               |
 | `repository`                                                                         | automatic      | registry `repository`, `git+` prefix stripped                 |
@@ -91,22 +91,30 @@ Which bucket a field falls into (rows are plugin fields unless marked otherwise)
 The one value outside the three buckets is a sort key declared as `{ "githubStars": … }`: it is an
 integer read from the GitHub API at build time, so it changes with no commit here.
 
+**Which versions are listed.** `config.json` `build.includePrerelease: false` and
+`build.maxVersionsPerPlugin: 1` mean each entry lists exactly one version — the newest stable one —
+so the index stays small and every entry is installable. An older or prerelease version is installed
+from npm directly; it is deliberately not advertised here. Set `maxVersionsPerPlugin` to `0` to list
+every published version again, and `includePrerelease` to `true` to list prereleases too.
+
 ## How the pipeline runs
 
 One workflow, `.github/workflows/build-market.yml`, with two jobs, on four triggers. `push` and
 `pull_request` are filtered to the files that define the index — `config.json`, `plugins.txt`,
 `scripts/**`, `package.json`, the lockfile, and the workflow itself.
 
-| Trigger                 | Why it exists                                                                      |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| push to `main`          | an edited `plugins.txt` or `config.json` goes live immediately                     |
-| pull request            | validated **before** it can reach `main`: build and validator only, never a deploy |
-| manual dispatch         | a rebuild after a plugin publishes, or after an npm incident                       |
-| schedule, every 6 hours | plugins publish without touching this repo, so the index polls                     |
+| Trigger              | Why it exists                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| push to `main`       | an edited `plugins.txt` or `config.json` goes live immediately                     |
+| pull request         | validated **before** it can reach `main`: build and validator only, never a deploy |
+| manual dispatch      | a rebuild after a plugin publishes, or after an npm incident                       |
+| schedule, every hour | plugins publish without touching this repo, so the index polls                     |
 
-- **`build`** — install, `pnpm run build`, `pnpm run check`, then upload the site artifact.
+- **`build`** — install, `pnpm run build`, `pnpm run check`, compare the result with the live index,
+  then upload the site artifact.
 - **`deploy`** — `needs: build`, and skipped on pull requests
-  (`if: github.event_name != 'pull_request'`). It publishes that artifact to GitHub Pages, and it is
+  (`if: github.event_name != 'pull_request'`) and also skipped when the built `index.json` is
+  byte-identical to what is already live. It publishes that artifact to GitHub Pages, and it is
   the only job with a write scope: the workflow carries top-level `permissions: contents: read`,
   while the deploy job adds `pages: write` and `id-token: write`. That split is what makes a
   pull-request run harmless.
@@ -119,8 +127,13 @@ What a run guarantees:
 - **A run is reproducible from its inputs.** The build deletes `public/` before writing it, so there
   is no incremental state to rot; the same inputs and the same npm state produce the same file.
 
-**A red run is the only signal.** A scheduled workflow's failure notification reaches only whoever
-last edited the `cron` line, so "I heard nothing" is not evidence that the index is fresh.
+**A red run is not silent any more.** A scheduled workflow's failure notification reaches only
+whoever last edited the `cron` line, so a failed run also opens — or comments on — a single issue
+titled `[market] the index build is failing`, and closes it again when a later run succeeds. That
+issue, not an inbox, is the place to look. When in doubt about how current a deployed index is, read
+`status.json`: it carries the build time, the plugin and version counts, and the newest DSH version
+the build measured against. It is a separate file precisely because format 1 has no member for any
+of that.
 
 ## Adding a plugin
 
