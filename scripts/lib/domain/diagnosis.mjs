@@ -97,10 +97,16 @@ export class Diagnostics {
     return this.codes.filter((code) => !ENVIRONMENTAL.has(code))
   }
 
-  /** What CI uploads and a human reads; small on purpose. */
-  toJSON() {
+  /**
+   * What CI uploads and a human reads; small on purpose.
+   *
+   * `generatedAt` is passed in rather than read here: this module is the pure half of the build, and a
+   * clock inside it would make two serialisations of the same diagnostics differ. That matters beyond
+   * tidiness — it would make the record impossible to hash, snapshot-test, or diff across runs.
+   */
+  toJSON(generatedAt) {
     return {
-      generatedAt: new Date().toISOString(),
+      ...(generatedAt === undefined ? {} : { generatedAt }),
       count: this.size,
       codes: this.codes,
       ratcheted: this.ratcheted,

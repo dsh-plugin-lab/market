@@ -271,7 +271,7 @@ async function main() {
   await mkdir(join(ROOT, 'build'), { recursive: true })
   await writeFile(
     join(ROOT, 'build', 'diagnostics.json'),
-    `${JSON.stringify(diagnostics.toJSON(), null, 2)}\n`,
+    `${JSON.stringify(diagnostics.toJSON(new Date().toISOString()), null, 2)}\n`,
     'utf8',
   )
 

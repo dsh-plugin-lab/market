@@ -86,7 +86,7 @@ test('codes are deduplicated and sorted, items keep every occurrence', () => {
 test('toJSON carries the codes, their severity and the context', () => {
   const diagnostics = new Diagnostics()
   diagnostics.add('version-skipped', 'no timestamp', { plugin: 'p', version: '1.0.0' })
-  const document = diagnostics.toJSON()
+  const document = diagnostics.toJSON('2026-10-19T00:00:00.000Z')
   assert.equal(document.count, 1)
   assert.deepEqual(document.codes, ['version-skipped'])
   assert.deepEqual(document.items[0], {
@@ -96,7 +96,14 @@ test('toJSON carries the codes, their severity and the context', () => {
     plugin: 'p',
     version: '1.0.0',
   })
-  assert.match(document.generatedAt, /^\d{4}-\d{2}-\d{2}T/u)
+  assert.equal(document.generatedAt, '2026-10-19T00:00:00.000Z')
+})
+
+test('the record itself is pure: the clock is the caller’s, so a snapshot can be diffed', () => {
+  const diagnostics = new Diagnostics()
+  diagnostics.add('locale-missing', 'no locale')
+  assert.equal(diagnostics.toJSON().generatedAt, undefined)
+  assert.deepEqual(diagnostics.toJSON('T'), diagnostics.toJSON('T'))
 })
 
 test('a clean build has no codes', () => {
