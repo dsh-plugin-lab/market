@@ -55,6 +55,7 @@ const problems = []
 const error = (message) => problems.push(message)
 const info = (message) => console.log(`  [INFO] ${message}`)
 const ok = (message) => console.log(`  [OK]   ${message}`)
+const warn = (message) => console.log(`  [WARN] ${message}`)
 
 function checkMembers(value, kind, path) {
   for (const key of Object.keys(value)) {
@@ -105,6 +106,35 @@ function defaultVersion(plugin) {
   return (stable[0] ?? plugin.versions[0])?.version
 }
 
+/**
+ * Whether a version runs on a given DSH, using the reader's own rule: the plugin's `engines.dsh`
+ * decides alone, and prereleases participate in the range (DSH itself ships prereleases).
+ */
+function runsOn(version, dsh) {
+  const range = version.engines.dsh
+  if (range === undefined) return true
+  return semver.satisfies(dsh, range, { includePrerelease: true })
+}
+
+/** The newest published DSH, which is the version a fresh reader will be running. */
+async function currentDsh(flagValue) {
+  if (flagValue !== undefined) return flagValue
+  try {
+    const response = await fetch('https://registry.npmjs.org/@deepseek-ai%2Fdsh', {
+      headers: { accept: 'application/vnd.npm.install-v1+json' },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const packument = await response.json()
+    return packument['dist-tags']?.latest
+  } catch (failure) {
+    warn(
+      `could not read the current DSH version (${failure.message}); compatibility is not checked`,
+    )
+    return undefined
+  }
+}
+
 async function main() {
   const urlFlag = process.argv.indexOf('--url')
   const raw = JSON.parse(await readFile(INDEX_FILE, 'utf8'))
@@ -151,15 +181,30 @@ async function main() {
   }
 
   console.log('')
+  const dshFlag = process.argv.indexOf('--dsh')
+  const dsh = await currentDsh(dshFlag === -1 ? undefined : process.argv[dshFlag + 1])
+  if (dsh !== undefined) info(`compatibility measured against DSH ${dsh}`)
   console.log(
-    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'default'.padEnd(14)} ${'engines.dsh'.padEnd(30)} icon`,
+    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'default'.padEnd(14)} ${'engines.dsh'.padEnd(30)} ${'runs on'.padEnd(10)} icon`,
   )
-  console.log(`  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(30)} ----`)
+  console.log(
+    `  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(30)} ${'-'.repeat(10)} ----`,
+  )
   for (const plugin of index.plugins) {
     const newest = plugin.versions[0]
+    const compatible =
+      dsh === undefined
+        ? '-'
+        : `${plugin.versions.filter((version) => runsOn(version, dsh)).length}/${plugin.versions.length}`
+    if (dsh !== undefined && plugin.versions.every((version) => !runsOn(version, dsh))) {
+      warn(
+        `${plugin.name}: no listed version declares support for DSH ${dsh} — the entry would install nothing`,
+      )
+    }
     console.log(
       `  ${plugin.name.padEnd(28)} ${String(plugin.versions.length).padStart(8)}  ` +
-        `${String(defaultVersion(plugin)).padEnd(14)} ${(newest.engines.dsh ?? 'any').padEnd(30)} ${plugin.icon === undefined ? '-' : 'yes'}`,
+        `${String(defaultVersion(plugin)).padEnd(14)} ${(newest.engines.dsh ?? 'any').padEnd(30)} ` +
+        `${compatible.padEnd(10)} ${plugin.icon === undefined ? '-' : 'yes'}`,
     )
   }
   console.log('')
