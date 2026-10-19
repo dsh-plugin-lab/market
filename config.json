@@ -26,17 +26,17 @@
       }
     },
     "labels": {
-      "tool": {
-        "title": { "en": "Model tool", "zh": "模型工具" }
-      },
-      "ui": {
-        "title": { "en": "Interface", "zh": "界面" }
-      },
-      "agent": {
+      "for-agents": {
         "title": { "en": "For agents", "zh": "面向 Agent" }
       },
-      "models": {
-        "title": { "en": "Models", "zh": "模型" }
+      "interface": {
+        "title": { "en": "Interface", "zh": "界面" }
+      },
+      "zero-config": {
+        "title": { "en": "Works out of the box", "zh": "开箱即用" }
+      },
+      "needs-key": {
+        "title": { "en": "Needs your own key", "zh": "需自备密钥" }
       }
     },
     "sortKeys": {
@@ -60,33 +60,28 @@
       "account": ["balance", "usage", "account"],
       "search": ["search", "zhihu", "retrieval"]
     },
-    "labels": {
-      "tool": ["tool", "search"],
-      "ui": ["ui", "sidebar"],
-      "agent": ["agent", "debugging"],
-      "models": ["llm", "models"]
-    }
+    "labels": {}
   },
   "plugins": {
     "dsh-zhihu-search": {
       "category": "search",
-      "labels": ["tool"],
+      "labels": ["for-agents", "needs-key"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-ds-balance": {
       "category": "account",
-      "labels": ["ui"],
+      "labels": ["interface", "zero-config"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-plugin-debugging": {
       "category": "devtools",
-      "labels": ["agent"],
+      "labels": ["for-agents", "zero-config"],
       "keywords": ["debugging", "diagnostics", "reload", "troubleshooting"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-workbuddy-bridge": {
       "category": "models",
-      "labels": ["models"],
+      "labels": ["interface", "zero-config"],
       "sortKeys": { "stars": { "githubStars": "dsh-plugin-lab/dsh-workbuddy-bridge" } },
       "repository": {
         "url": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge"
