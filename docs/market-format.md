@@ -6,7 +6,8 @@ is in [AGENTS.md](../AGENTS.md). A constraint stated here is stated once — not
 repository repeats it.
 
 `public/index.json` is the file DSH reads when a user adds
-`https://dsh-plugin-lab.github.io/market/index.json` under **插件 → 发现 → 添加索引源**.
+`https://dsh-plugin-lab.github.io/market/index.json` under **Plugins → Discover → Add index source**
+(the interface label follows the reader’s language; the path is the same).
 
 **It is generated output.** Nobody edits it by hand: `scripts/build-index.mjs` deletes `public/` and
 writes it again from `plugins.txt`, `config.json` and npm, and `scripts/check-index.mjs` runs the
@@ -201,13 +202,14 @@ real index carries every plugin, every published version, and every group a plug
   // config.json market.title. Localized, and `en` is mandatory.
   "title": { "en": "DSH Plugin Lab", "zh": "DSH 插件实验室" },
   "description": {
-    "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: retrieval, account, models and development tooling.",
-    "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：检索、账户、模型接入与开发工具。"
+    "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, and additions to the interface.",
+    "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型，以及界面增强。"
   },
   "metadata": {
     // Declarations. Every id a plugin references below must appear here.
-    "categories": { "search": { "title": { "en": "Search & retrieval", "zh": "检索" } } },
-    "labels": { "tool": { "title": { "en": "Model tool", "zh": "模型工具" } } },
+    // The ids below are this market's real declarations; see config.json for the current set.
+    "categories": { "tools": { "title": { "en": "Tools", "zh": "工具" } } },
+    "labels": { "local": { "title": { "en": "Local", "zh": "本地" } } },
     "sortKeys": {
       "stars": { "title": { "en": "GitHub stars", "zh": "GitHub 星标" }, "order": "desc" }
     }
@@ -231,23 +233,23 @@ real index carries every plugin, every published version, and every group a plug
       "repository": { "url": "https://github.com/dsh-plugin-lab/dsh-zhihu-search" },
       "metadata": {
         // Declared under metadata.categories above.
-        "category": "search",
+        "category": "tools",
         // Free-form: registry keywords minus the configured blocklist, plus the name.
         "keywords": ["zhihu", "zhihu-api", "search", "tool", "dsh-zhihu-search"],
         // Declared under metadata.labels above.
-        "labels": ["tool"],
+        "labels": ["local"],
         // Id declared above; the number is read from the GitHub API at build time.
         "sortKeys": { "stars": 13 }
       },
       "versions": [
         {
-          "version": "2.1.2",
-          // 2026-10-15T08:09:48Z as integer Unix seconds, not milliseconds.
-          "publishTimestamp": 1792051788,
+          "version": "2.2.1",
+          // The registry's publish time as integer Unix seconds, not milliseconds.
+          "publishTimestamp": 1792407068,
           // npm by default; a git source would carry url, commit and optional path here.
           "source": { "type": "npm" },
           // Copied from the published manifest's engines.dsh. `{}` means any DSH.
-          "engines": { "dsh": "^0.1.7-rc.1 || ^0.2.0-rc.1" }
+          "engines": { "dsh": "^0.1.7-rc.1 || ^0.2.0-rc.1 || ^0.2.1-rc.1" }
         }
       ]
     }
@@ -255,6 +257,7 @@ real index carries every plugin, every published version, and every group a plug
 }
 ```
 
-What this entry does **not** contain, and why: no `author` (the package publishes none), no
-`dist-tags` (format 1 has no member for it), no build timestamp (also no member — freshness is
-checked against npm, not against the file), and no other published version (truncated here only).
+What this entry does **not** contain, and why: no `dist-tags` (format 1 has no member for it), no
+build timestamp (also no member — freshness is checked against npm, not against the file), and no other
+published version (truncated here only). `author` is omitted from this example only for brevity; every
+package listed today publishes one, and the field is optional precisely because a package may not.

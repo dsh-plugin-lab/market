@@ -109,7 +109,9 @@ Three rules follow, and they are the whole of the data policy:
   codes are ratcheted against a committed `diagnostics-baseline.json`. A new degradation fails `check`
   instead of scrolling past. Codes that depend on the machine (a star count, the current DSH version)
   are reported but never ratcheted, because a baseline that flips on environment alone teaches people
-  to ignore it.
+  to ignore it. The codes themselves, and the severity each carries, are declared once in
+  [`scripts/lib/domain/diagnosis.mjs`](../scripts/lib/domain/diagnosis.mjs); what to _do_ about a new
+  one is in [AGENTS.md](../AGENTS.md), not here.
 - **Display facts are passed through, not normalised.** `author`, `homepage` and `repository` appear as
   the package publishes them. When they disagree across packages, the fix belongs in those packages:
   an override here would hide the drift, not remove it.

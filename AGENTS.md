@@ -61,25 +61,22 @@
    `build.includePrerelease: true` 决定这一点。回滚到第五个之前、或装未列出的预发布，用
    `pnpm add <name>@<version>` 直装，别去索引里找。要恢复全量把 `maxVersionsPerPlugin` 写 `0`。
    **默认版本不受影响**：读者永远选「最高的非预发布版本」，列了预发布也不会让它变成默认。
-5. **降级不报错，但会被棘轮抓住。** 每条降级带一个稳定 code，写进 `build/diagnostics.json`（不进产物）。
-   `check` 比对 `diagnostics-baseline.json`：**出现基线没有的 code 就红**，基线里留着不再发生的 code 也提示。
-   所以「星标拿不到 → 星标排序整项消失」「tarball 读不到 → 标题与图标一起退回包名」这类静默退化，现在会在
-   PR 上红，而不是等用户说「这插件怎么是空白的」。要接受某个降级，就在同一次提交里把 code 加进基线。
-   `stars-unavailable` / `dsh-version-unavailable` 属环境相关（本地无 token 会撞限流），只报告不进棘轮。
+5. **降级不报错，但会被棘轮抓住。** 遇到新 code：先弄清它是不是真问题，是真问题就修，不是就**在同一次提交里**
+   把 code 加进 [diagnostics-baseline.json](diagnostics-baseline.json)。基线里留着不再发生的 code 也会提示，随手删掉。
+   `stars-unavailable` / `dsh-version-unavailable` 属环境相关，只报告不进棘轮。
+   哪些码、各自什么严重级别、为什么降级不进产物 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 与
+   `scripts/lib/domain/diagnosis.mjs`。
 6. **展示字段一律透传，不在本仓美化。** `author` / `homepage` / `repository` 是包自己发布的值；写法不一致或为空时，
    正解是回源改 + 发版。在 `config.json` 覆盖会把漂移藏起来，下次照样漂。
-7. **部署成功 ≠ 读者拿到新东西。** 所以 `verify` job 在部署之后去抓**真实 URL**（带随机 query 绕开 Pages 缓存），
-   比对线上字节的 sha256 与本轮 `status.json` 的 `content.hash`。本机跑 `pnpm run verify:deployed` 时同理，先 build 再比。
+7. **部署成功 ≠ 读者拿到新东西。** 所以部署之后还有一个 `verify` job 去抓真实 URL。
+   本机复核：`pnpm run build` 后跑 `pnpm run verify:deployed`（它拿线上字节与本地比对，不是拿构建日志）。
+   为什么用内容哈希而不是时间戳 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 8. **「合并了但没发版」市场看不见。** 索引是 npm 的快照，仓库领先 npm 时所有检查都正确且全绿——workbuddy 就这样
    卡了两周（npm 授权过期）。`pnpm run drift` 会读组织各仓的 `package.json` 与 registry 比对，漂移时后台自动开
    固定标题 issue，恢复后自动关。**它只报告，不自动改**：发版与上架是人的决定。
-9. **一轮构建的时间主要花在一个包的体积上，不在代码里。** 实测：四个 tarball 共约 4.8MB，其中
-   `dsh-plugin-debugging` 一个占 4.4MB（包内 `assets/banner.gif` 约 4MB），单次下载 16s；其余三个各 100–170KB。
-   build 的表和 `status.json` 的 `plugins[].package` 都会打出这三个数：`downloadedBytes`（这轮下载）、
-   `unpackedBytes`（消费者要装多少）、`largestFile` + `largestFileBytes`（是谁占的）。**看到「包大」先看
-   `largestFile`**，别猜。
-   想再快得从**插件仓的 `files` / `.npmignore`** 下手，市场侧改不了；也不要为此加缓存——那会给
-   「构建是投影」这条性质引入状态。
+9. **构建时间由包的体积决定，不由本仓代码决定。** 看到「今天构建慢」，先看 `build` 表或 `status.json` 的
+   `plugins[].package`：`downloadedBytes`（这轮下载）、`unpackedBytes`（消费者要装多少）、`largestFile`（是谁占的）。
+   成因在插件仓的 `files` / `.npmignore`，市场侧改不了；**也不要为此加缓存**——那会给「构建是投影」引入状态。
 
 ## 手写面与生成物
 
@@ -122,7 +119,7 @@ build 每次先整个删掉再写。工程配置（`package.json`、`pnpm-lock.y
 
 ## 待办
 
-- [ ] 组织仓的 `plugin-conventions.md` 尚未提市场（是否要提，等有第二处跨仓判据时再定）。
+- [ ] 暂无。跨仓判据是否要提市场，是组织仓的决定，不在本仓待办里。
 
 ## 验证方式
 
