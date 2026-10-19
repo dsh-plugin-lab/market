@@ -59,5 +59,8 @@ export function buildEntry({
     languages: facts.languages,
     assets: facts.asset === undefined ? [] : [facts.asset],
     fetchedBytes: facts.fetchedBytes,
+    unpackedBytes: facts.unpackedBytes,
+    fileCount: facts.fileCount,
+    largestFile: facts.largestFile,
   }
 }

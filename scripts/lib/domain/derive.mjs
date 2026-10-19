@@ -288,5 +288,10 @@ export function deriveFacts({ name, explicit, settings, packument, tarball, repo
     languages: locale.languages,
     keywords: keywordsOf(settings, packument.keywords, explicit.keywords, [name]),
     fetchedBytes: tarball.bytes ?? 0,
+    // What the package costs a consumer, and what makes it cost that. A number without its cause is
+    // a number nobody acts on, so the largest file travels with the total.
+    unpackedBytes: tarball.sizes?.unpacked ?? 0,
+    fileCount: tarball.sizes?.fileCount ?? 0,
+    largestFile: tarball.sizes?.largest,
   }
 }

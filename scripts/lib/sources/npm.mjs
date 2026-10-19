@@ -6,7 +6,7 @@
  * fatal error during a check. Everything here throws on failure and returns data on success.
  */
 import { gunzipSync } from 'node:zlib'
-import { readTar } from '../shared/tar.mjs'
+import { readTar, readTarSizes } from '../shared/tar.mjs'
 import { buffer, json } from '../shared/http.mjs'
 
 export const NPM = 'https://registry.npmjs.org'
@@ -29,10 +29,17 @@ export function latestDsh() {
 /**
  * The published tarball, so locale text and the icon are exactly what a user installs.
  *
- * The byte count comes back with the entries because it is worth knowing: one plugin's package can
- * dominate the whole run's download, and that is invisible if the only output is a file listing.
+ * Three facts come back with the entries because they are all worth knowing and all invisible from a
+ * file listing: the compressed size this build paid, the unpacked size a consumer installs, and the
+ * single file that dominates it. A package shipping a four-megabyte image for its README is otherwise
+ * only visible as "the build is slow".
  */
 export async function tarballEntries(tarballUrl) {
   const compressed = await buffer(tarballUrl, { accept: 'application/octet-stream' })
-  return { entries: readTar(gunzipSync(compressed)), bytes: compressed.length }
+  const archive = gunzipSync(compressed)
+  return {
+    entries: readTar(archive),
+    sizes: readTarSizes(archive),
+    bytes: compressed.length,
+  }
 }

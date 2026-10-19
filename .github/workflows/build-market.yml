@@ -172,10 +172,11 @@ jobs:
       # "skip": a stale live copy is worse than a redundant deployment.
       #
       # The comparison covers the whole published set, not just index.json. status.json is deployed too,
-      # and its *shape* can change while the index content does not — that happened when the record
-      # gained content.hash, and deduplicating on index.json alone left readers serving a status file
-      # from the previous schema indefinitely. Volatile fields stay out of it: status.json carries the
-      # build time, and comparing that would deploy on every run, which is what dedup exists to avoid.
+      # and its shape can change while the index content does not — that happened when the record
+      # gained content.hash and again when it gained per-package sizes, and deduplicating on the index
+      # alone left readers on the previous shape until some plugin happened to publish. So the record is
+      # compared after dropping `build`, which holds times and durations: those change on every run, and
+      # comparing them would deploy hourly, which is exactly what deduplication exists to prevent.
       - name: Compare with the live index
         id: compare
         run: |
@@ -183,16 +184,16 @@ jobs:
           statusurl=$(dirname "$url")/status.json
           built=$(sha256sum public/index.json | cut -d' ' -f1)
           live=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1 || true)
-          built_schema=$(jq -r '.schema // 0' public/status.json)
-          live_schema=$(curl -fsSL "$statusurl" | jq -r '.schema // 0' 2>/dev/null || echo "?")
-          echo "index: built ${built}, live ${live:-unreachable}"
-          echo "status schema: built ${built_schema}, live ${live_schema}"
-          if [ -n "$live" ] && [ "$live" = "$built" ] && [ "$live_schema" = "$built_schema" ]; then
+          built_status=$(jq -S 'del(.build)' public/status.json | sha256sum | cut -d' ' -f1)
+          live_status=$(curl -fsSL "$statusurl" | jq -S 'del(.build)' 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "?")
+          echo "index:  built ${built}, live ${live:-unreachable}"
+          echo "status: built ${built_status}, live ${live_status}"
+          if [ -n "$live" ] && [ "$live" = "$built" ] && [ "$live_status" = "$built_status" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "the published set is unchanged; the deployment is skipped"
           elif [ -n "$live" ] && [ "$live" = "$built" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "the index is unchanged but the status record's shape is not — deploying so readers see it"
+            echo "the index is unchanged but the build record is not — deploying so readers see it"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "the index changed; it will be deployed"

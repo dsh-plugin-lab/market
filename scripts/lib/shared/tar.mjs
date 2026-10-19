@@ -5,6 +5,11 @@
  * display text and the icon, so the build continues. That is exactly why it has tests: a tar format
  * the reader does not understand would otherwise degrade every entry in the market and still pass
  * every other check.
+ *
+ * Two views over the same walk: `readTar` for the paths and bytes a caller needs, and
+ * `readTarSizes` for how large the package is and what makes it large. The second exists because a
+ * package's size is a fact about the plugin (and about how long every market build takes), and a
+ * number nobody can explain is a number nobody acts on.
  */
 
 function tarString(block, offset, length) {
@@ -24,13 +29,12 @@ function paxPath(bytes) {
 }
 
 /**
- * Read a tar buffer into a path → bytes map.
+ * Walk the archive once, handing each regular file to `onFile(path, data, size)`.
  *
  * Handles the three ways a path is carried (plain `name`, ustar `prefix`, pax `x` and GNU `L`
  * extension) and skips directories and other non-regular entries.
  */
-export function readTar(buffer) {
-  const entries = new Map()
+function walk(buffer, onFile) {
   let offset = 0
   let pendingName
   while (offset + 512 <= buffer.length) {
@@ -52,10 +56,36 @@ export function readTar(buffer) {
       pendingName = data.toString('utf8').replace(/\0+$/u, '')
     } else if (flag === '0' || flag === '\0' || flag === '7') {
       const path = pendingName ?? (prefix === '' ? name : `${prefix}/${name}`)
-      entries.set(path, data)
+      onFile(path, data, size)
       pendingName = undefined
     }
     offset = dataStart + Math.ceil(size / 512) * 512
   }
+}
+
+/** Read a tar buffer into a path → bytes map. */
+export function readTar(buffer) {
+  const entries = new Map()
+  walk(buffer, (path, data) => entries.set(path, data))
   return entries
+}
+
+/**
+ * How big the package is, and which file makes it big.
+ *
+ * `unpacked` is the sum of the file sizes the archive declares; `largest` is the single biggest file.
+ * Both describe what a plugin publishes, which is why they are worth recording: one package shipping a
+ * four-megabyte image for its README is invisible until someone measures it, and that measurement is
+ * paid for by every consumer's install and by this repository's hourly build.
+ */
+export function readTarSizes(buffer) {
+  let unpacked = 0
+  let largest
+  let fileCount = 0
+  walk(buffer, (path, _data, size) => {
+    unpacked += size
+    fileCount += 1
+    if (largest === undefined || size > largest.bytes) largest = { path, bytes: size }
+  })
+  return { unpacked, largest, fileCount }
 }

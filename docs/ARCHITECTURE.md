@@ -74,10 +74,11 @@ Three rules follow, and they are the whole of the data policy:
   `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
 - **Deployment happens only when the published set changed.** The deployment history then means "the
   content changed here" instead of 24 identical deploys a day. "The published set" is both files a
-  reader fetches: the index by its bytes, and `status.json` by its schema version. Shape can change
-  while content does not — when the record gained `content.hash`, deduplicating on the index alone left
-  readers on the previous schema for as long as no plugin published. Volatile fields stay out of the
-  comparison, because a build time would deploy on every run and that is what deduplication prevents.
+  reader fetches: the index by its bytes, and `status.json` by its content with `build` removed. Shape can
+  change while content does not — when the record gained `content.hash`, and again when it gained
+  per-package sizes, deduplicating on the index alone left readers on the previous shape until some
+  plugin happened to publish. `build` holds times and durations, which change every run; dropping it
+  keeps the comparison about what readers learn rather than about when the build ran.
 - **`status.json` exists because the format has no time member.** With deployment deduplicated, the
   deployment history no longer answers "how old is this index", so the build writes its own record.
 - **That record carries two identities, and they are not interchangeable.** `content.hash` is what a

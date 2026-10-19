@@ -113,7 +113,7 @@ async function factsFor(name, explicit, stars) {
   let tarball
   try {
     const fetched = await tarballEntries(published.versions[newest].dist.tarball)
-    tarball = { entries: fetched.entries, bytes: fetched.bytes }
+    tarball = { entries: fetched.entries, sizes: fetched.sizes, bytes: fetched.bytes }
   } catch (error) {
     // "We could not fetch it" is not "the package does not have it": this is a network event, and the
     // model is told so explicitly instead of inferring it from a missing value.
@@ -257,7 +257,17 @@ async function main() {
       languages: entry.languages,
       title: entry.plugin.title?.en ?? undefined,
       icon: entry.plugin.icon !== undefined,
-      fetchedBytes: entry.fetchedBytes,
+      // What this package costs: the bytes this build downloaded, what a consumer unpacks, and the one
+      // file responsible for most of it. Recorded because a package's size is otherwise only felt as
+      // "the build is slow", and because the cause belongs next to the number.
+      package: {
+        downloadedBytes: entry.fetchedBytes,
+        unpackedBytes: entry.unpackedBytes,
+        fileCount: entry.fileCount,
+        ...(entry.largestFile === undefined
+          ? {}
+          : { largestFile: entry.largestFile.path, largestFileBytes: entry.largestFile.bytes }),
+      },
     })),
     diagnostics: {
       count: diagnostics.size,
@@ -277,17 +287,18 @@ async function main() {
 
   console.log('')
   console.log(
-    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'newest'.padEnd(14)} ${'languages'.padEnd(12)} ${'fetched'.padEnd(9)} title`,
+    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'newest'.padEnd(14)} ${'languages'.padEnd(12)} ${'tarball'.padEnd(9)} ${'unpacked'.padEnd(9)} largest`,
   )
   console.log(
-    `  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(12)} ${'-'.repeat(9)} -----`,
+    `  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(12)} ${'-'.repeat(9)} ${'-'.repeat(9)} -------`,
   )
   for (const entry of built) {
-    const title = entry.plugin.title?.en ?? '(package name)'
+    const kib = (bytes) => `${Math.round((bytes ?? 0) / 1024)}KB`
     console.log(
       `  ${entry.plugin.name.padEnd(28)} ${String(entry.plugin.versions.length).padStart(8)}  ` +
         `${entry.newest.padEnd(14)} ${(entry.languages.join(',') || '-').padEnd(12)} ` +
-        `${`${Math.round((entry.fetchedBytes ?? 0) / 1024)}KB`.padEnd(9)} ${title}`,
+        `${kib(entry.fetchedBytes).padEnd(9)} ${kib(entry.unpackedBytes).padEnd(9)} ` +
+        `${entry.largestFile === undefined ? '-' : `${entry.largestFile.path} (${kib(entry.largestFile.bytes)})`}`,
     )
   }
   console.log('')

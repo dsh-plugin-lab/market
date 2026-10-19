@@ -75,8 +75,11 @@
    固定标题 issue，恢复后自动关。**它只报告，不自动改**：发版与上架是人的决定。
 9. **一轮构建的时间主要花在一个包的体积上，不在代码里。** 实测：四个 tarball 共约 4.8MB，其中
    `dsh-plugin-debugging` 一个占 4.4MB（包内 `assets/banner.gif` 约 4MB），单次下载 16s；其余三个各 100–170KB。
-   `status.json` 的 `plugins[].fetchedBytes` 会把这个数字打出来。想再快得从**插件仓的 `files` / `.npmignore`**
-   下手，市场侧改不了；也不要为此加缓存——那会给「构建是投影」这条性质引入状态。
+   build 的表和 `status.json` 的 `plugins[].package` 都会打出这三个数：`downloadedBytes`（这轮下载）、
+   `unpackedBytes`（消费者要装多少）、`largestFile` + `largestFileBytes`（是谁占的）。**看到「包大」先看
+   `largestFile`**，别猜。
+   想再快得从**插件仓的 `files` / `.npmignore`** 下手，市场侧改不了；也不要为此加缓存——那会给
+   「构建是投影」这条性质引入状态。
 
 ## 手写面与生成物
 
