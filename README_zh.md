@@ -26,7 +26,7 @@
 每小时重建一次，本仓有改动时立即重建。
 [status.json](https://dsh-plugin-lab.github.io/market/status.json) 记着上一轮生成了什么、什么时候。
 
-每个条目只带最新稳定版。要装旧版本或预发布版本，直接指定版本号：
+每个条目列出最近五个版本（含预发布）。DSH 默认装其中最新的稳定版；要指定别的版本，用
 `dsh plugin add <包名>@<版本>`。
 
 维护者：见 [AGENTS.md](AGENTS.md)。

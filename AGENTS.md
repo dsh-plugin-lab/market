@@ -51,8 +51,10 @@
    结论在 Actions 和那条 issue 里，不在收件箱里。
 3. **`status.json` 才是「这份索引多新」的答案。** 部署只在内容变化时发生，`deploy` 被 skipped 是设计而非假绿，
    判据在 `build`。索引自己不带时间。
-4. **只列最新稳定版，旧版本装不到。** 回滚或装 alpha 用 `pnpm add <name>@<version>` 直装，别去索引里找。
-   要恢复全量：`build.maxVersionsPerPlugin` 写 `0`、`includePrerelease` 写 `true`。
+4. **只列最近五个版本（含预发布），更旧的装不到。** `build.maxVersionsPerPlugin: 5` +
+   `build.includePrerelease: true` 决定这一点。回滚到第五个之前、或装未列出的预发布，用
+   `pnpm add <name>@<version>` 直装，别去索引里找。要恢复全量把 `maxVersionsPerPlugin` 写 `0`。
+   **默认版本不受影响**：读者永远选「最高的非预发布版本」，列了预发布也不会让它变成默认。
 5. **降级是静默的，只有 WARN。** 星标拿不到 → 星标排序整项消失；tarball 读不到 → 标题与图标一起退回包名。
    索引仍然合法。先读 build 输出的 WARN，再怀疑配置。
 6. **展示字段一律透传，不在本仓美化。** `author` / `homepage` / `repository` 是包自己发布的值；写法不一致或为空时，

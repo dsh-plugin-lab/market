@@ -27,7 +27,7 @@ Rebuilt every hour, and on every change to this repository.
 [status.json](https://dsh-plugin-lab.github.io/market/status.json) says what the last build produced
 and when.
 
-Each entry carries its newest stable version. For an older or prerelease version, install it directly:
-`dsh plugin add <name>@<version>`.
+Each entry lists its five newest versions, prereleases included. DSH installs the newest stable one by
+default; to pick another, `dsh plugin add <name>@<version>`.
 
 Maintainers: [AGENTS.md](AGENTS.md).

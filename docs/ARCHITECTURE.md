@@ -39,9 +39,11 @@ values, and no document keeps a second copy of the current category list.
 
 - **The index is generated and never committed.** A committed copy would be a second source of truth
   that goes stale the moment a plugin publishes. `public/` is ignored and deployed as an artifact.
-- **One version per plugin: the newest stable.** Size over history. An older or prerelease version is
-  installed with `dsh plugin add <name>@<version>` and is deliberately not advertised here.
-  `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
+- **Five versions per plugin, prereleases included.** Enough history to roll back one or two releases,
+  small enough that the index stays a few kilobytes rather than a full release archive. It does not
+  change what DSH installs by default: the reader still picks the highest stable version. Anything
+  older than the fifth is installed with `dsh plugin add <name>@<version>` and is deliberately not
+  advertised. `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
 - **Deployment happens only when `index.json` changed.** The deployment history then means "the
   content changed here" instead of 24 identical deploys a day.
 - **`status.json` exists because the format has no time member.** With deployment deduplicated, the
