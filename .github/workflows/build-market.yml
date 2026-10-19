@@ -170,15 +170,29 @@ jobs:
 
       # Compare against what readers are being served right now. A failed fetch means "deploy", not
       # "skip": a stale live copy is worse than a redundant deployment.
+      #
+      # The comparison covers the whole published set, not just index.json. status.json is deployed too,
+      # and its *shape* can change while the index content does not — that happened when the record
+      # gained content.hash, and deduplicating on index.json alone left readers serving a status file
+      # from the previous schema indefinitely. Volatile fields stay out of it: status.json carries the
+      # build time, and comparing that would deploy on every run, which is what dedup exists to avoid.
       - name: Compare with the live index
         id: compare
         run: |
           url=$(jq -r '.market.indexUrl' config.json)
+          statusurl=$(dirname "$url")/status.json
           built=$(sha256sum public/index.json | cut -d' ' -f1)
           live=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1 || true)
-          if [ -n "$live" ] && [ "$live" = "$built" ]; then
+          built_schema=$(jq -r '.schema // 0' public/status.json)
+          live_schema=$(curl -fsSL "$statusurl" | jq -r '.schema // 0' 2>/dev/null || echo "?")
+          echo "index: built ${built}, live ${live:-unreachable}"
+          echo "status schema: built ${built_schema}, live ${live_schema}"
+          if [ -n "$live" ] && [ "$live" = "$built" ] && [ "$live_schema" = "$built_schema" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "the index is unchanged; the deployment is skipped"
+            echo "the published set is unchanged; the deployment is skipped"
+          elif [ -n "$live" ] && [ "$live" = "$built" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "the index is unchanged but the status record's shape is not — deploying so readers see it"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "the index changed; it will be deployed"

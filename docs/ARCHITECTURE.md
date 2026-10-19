@@ -72,8 +72,12 @@ Three rules follow, and they are the whole of the data policy:
   older than the fifth is deliberately not advertised; the reader offers the listed versions, and how to
   install one from the command line belongs to the organization's own page rather than here.
   `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
-- **Deployment happens only when `index.json` changed.** The deployment history then means "the
-  content changed here" instead of 24 identical deploys a day.
+- **Deployment happens only when the published set changed.** The deployment history then means "the
+  content changed here" instead of 24 identical deploys a day. "The published set" is both files a
+  reader fetches: the index by its bytes, and `status.json` by its schema version. Shape can change
+  while content does not — when the record gained `content.hash`, deduplicating on the index alone left
+  readers on the previous schema for as long as no plugin published. Volatile fields stay out of the
+  comparison, because a build time would deploy on every run and that is what deduplication prevents.
 - **`status.json` exists because the format has no time member.** With deployment deduplicated, the
   deployment history no longer answers "how old is this index", so the build writes its own record.
 - **That record carries two identities, and they are not interchangeable.** `content.hash` is what a
