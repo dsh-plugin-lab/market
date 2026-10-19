@@ -12,31 +12,28 @@
   },
   "metadata": {
     "categories": {
-      "search": {
-        "title": { "en": "Search & retrieval", "zh": "检索" }
-      },
-      "account": {
-        "title": { "en": "Account & usage", "zh": "账户与用量" }
+      "tools": {
+        "title": { "en": "Tools", "zh": "工具" }
       },
       "models": {
-        "title": { "en": "Model access", "zh": "模型接入" }
+        "title": { "en": "Models", "zh": "模型" }
       },
-      "devtools": {
-        "title": { "en": "Developer tools", "zh": "开发工具" }
+      "ui": {
+        "title": { "en": "Interface", "zh": "界面" }
       }
     },
     "labels": {
-      "for-agents": {
-        "title": { "en": "For agents", "zh": "面向 Agent" }
+      "local": {
+        "title": { "en": "Local", "zh": "本地" }
       },
-      "interface": {
-        "title": { "en": "Interface", "zh": "界面" }
+      "online": {
+        "title": { "en": "Online", "zh": "在线" }
       },
       "zero-config": {
-        "title": { "en": "Works out of the box", "zh": "开箱即用" }
+        "title": { "en": "Zero config", "zh": "零配置" }
       },
       "needs-key": {
-        "title": { "en": "Needs your own key", "zh": "需自备密钥" }
+        "title": { "en": "Needs a key", "zh": "需自备密钥" }
       }
     },
     "sortKeys": {
@@ -55,33 +52,31 @@
   },
   "keywordRules": {
     "category": {
-      "devtools": ["debugging", "diagnostics"],
       "models": ["llm", "models", "workbuddy"],
-      "account": ["balance", "usage", "account"],
-      "search": ["search", "zhihu", "retrieval"]
-    },
-    "labels": {}
+      "ui": ["ui", "sidebar", "balance"],
+      "tools": ["search", "zhihu", "debugging", "diagnostics", "tool"]
+    }
   },
   "plugins": {
     "dsh-zhihu-search": {
-      "category": "search",
-      "labels": ["for-agents", "needs-key"],
+      "category": "tools",
+      "labels": ["online", "needs-key"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-ds-balance": {
-      "category": "account",
-      "labels": ["interface", "zero-config"],
+      "category": "ui",
+      "labels": ["online", "zero-config"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-plugin-debugging": {
-      "category": "devtools",
-      "labels": ["for-agents", "zero-config"],
+      "category": "tools",
+      "labels": ["local", "zero-config"],
       "keywords": ["debugging", "diagnostics", "reload", "troubleshooting"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-workbuddy-bridge": {
       "category": "models",
-      "labels": ["interface", "zero-config"],
+      "labels": ["local", "zero-config"],
       "sortKeys": { "stars": { "githubStars": "dsh-plugin-lab/dsh-workbuddy-bridge" } },
       "repository": {
         "url": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge"
