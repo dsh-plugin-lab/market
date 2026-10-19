@@ -1,0 +1,21 @@
+# Local hooks: fix on the way in, so CI only has to judge.
+#
+# Both hooks are seconds long and need no network. Nothing slow belongs here — a hook people skip with
+# `--no-verify` is worse than no hook. Type checks, the build and the deployed-URL verification stay in
+# CI, where they have the network and the history a local machine may not.
+repos:
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier (writes)
+        entry: pnpm exec prettier --write --ignore-unknown
+        language: system
+        types_or: [markdown, json, yaml, javascript]
+        pass_filenames: true
+
+      - id: scripts-test
+        name: scripts tests (no network)
+        entry: pnpm run test
+        language: system
+        files: '^(scripts|test)/'
+        pass_filenames: false

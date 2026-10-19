@@ -15,7 +15,9 @@
     "test": "node --test \"test/*.test.mjs\"",
     "verify": "npm run test && npm run index && npm run format:check",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "drift": "node scripts/check-org-drift.mjs",
+    "verify:deployed": "node scripts/verify-deployed.mjs"
   },
   "dependencies": {
     "@deepseek-ai/dsh-plugin-market-index": "^0.2.1-rc.2",

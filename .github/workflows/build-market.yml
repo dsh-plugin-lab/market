@@ -125,6 +125,49 @@ jobs:
           path: build/diagnostics.json
           if-no-files-found: ignore
 
+      # The market is a photograph of npm, so it cannot see the gap between a merge and a release. This
+      # asks the other side: does the organization declare something npm does not serve yet, or does a
+      # plugin repository exist that the market does not list? Report only — releasing and listing are
+      # human decisions, and an automatic fix would make the market claim what nobody decided.
+      - name: Compare the market with the organization
+        continue-on-error: true
+        run: node scripts/check-org-drift.mjs --write build/org-drift.json
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Report drift in the tracking issue
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: '[market] the market and the organization disagree'
+        run: |
+          if [ ! -f build/org-drift.json ]; then
+            exit 0
+          fi
+          count=$(jq -r '.findings | length' build/org-drift.json)
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --template '{{range .}}{{.number}}{{"\t"}}{{.title}}{{"\n"}}{{end}}' \
+            | awk -F'\t' -v t="$TITLE" '$2==t{print $1; exit}')
+          if [ "$count" = "0" ]; then
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "The market and the organization agree again."
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY"
+            fi
+            exit 0
+          fi
+          {
+            echo "The market index and the organization's repositories disagree. This is drift, not a build failure: the index serves what npm has, and npm is behind the repositories."
+            echo ""
+            jq -r '.findings[] | "- **\(.code)**: \(.message)"' build/org-drift.json
+            echo ""
+            echo "Each line is either a merge that has not been released, or a plugin repository that \`plugins.txt\` does not list. Fixing it is a release or a curation change; this issue closes itself on the next run that finds no drift."
+          } > /tmp/body.md
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file /tmp/body.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file /tmp/body.md
+          fi
+
       # Compare against what readers are being served right now. A failed fetch means "deploy", not
       # "skip": a stale live copy is worse than a redundant deployment.
       - name: Compare with the live index
@@ -145,6 +188,17 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: public
+
+      # Small, and separate from the Pages artifact: the verify job compares what readers get against
+      # exactly what this run built, including the build time that tells "updated" from "old copy".
+      - name: Keep what this run built
+        uses: actions/upload-artifact@v7
+        with:
+          name: built-index
+          path: |
+            public/index.json
+            public/status.json
+          retention-days: 1
 
       # A scheduled failure notifies only whoever last edited the cron line, so a silent index is the
       # default outcome of a silent failure. This keeps one fixed-title issue as the visible home for
@@ -197,3 +251,32 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  # Everything above checks files this runner produced. That is a different claim from "the URL serves
+  # them", and a deployment that silently publishes the previous generation looks exactly like success
+  # from the inside. This job asks the published URL instead of the artifact.
+  verify:
+    needs: [build, deploy]
+    if: github.event_name != 'pull_request' && needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: built-index
+          path: built
+
+      - name: Verify the deployed index
+        run: node scripts/verify-deployed.mjs --built built

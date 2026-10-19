@@ -48,8 +48,17 @@ values, and no document keeps a second copy of the current category list.
   content changed here" instead of 24 identical deploys a day.
 - **`status.json` exists because the format has no time member.** With deployment deduplicated, the
   deployment history no longer answers "how old is this index", so the build writes its own record.
-- **Build and deploy are separate jobs.** Only the deploy job holds a Pages environment and a write
-  scope, so a pull request can run the whole build and validator and still not reach the live site.
+- **Build and deploy are separate jobs, and verification is a third.** Only the deploy job holds a
+  Pages environment and a write scope, so a pull request can run the whole build and validator and
+  still not reach the live site. The `verify` job then asks the published URL, not the artifact: a
+  deployment that silently serves the previous generation looks exactly like success from inside the
+  run, and the only way to tell is to fetch what a reader would fetch.
+- **Drift between a merge and a release is reported, never fixed.** The index is a snapshot of npm, so
+  it cannot notice that a repository says `0.5.0` while npm still serves `0.4.0`; every check in this
+  repository is correctly green while that gap exists. One plugin sat in it for two weeks behind an
+  expired publish credential. The build therefore compares the organization's manifests with the
+  registry and opens one tracking issue when they disagree. It does not release and it does not curate:
+  both are decisions, and a machine that makes them would make the market claim what nobody chose.
 - **A failed build opens an issue.** A scheduled workflow's failure notification reaches only whoever
   last edited the `cron` line, so a silent index would otherwise be the default outcome.
 - **Degradation is recorded outside the product.** One plugin's broken packaging must not take the
