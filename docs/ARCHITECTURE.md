@@ -35,6 +35,33 @@ plugin only reaches the index after that plugin publishes.
 Nothing else is authoritative. Curation lives only in `config.json`; the scripts hold no display
 values, and no document keeps a second copy of the current category list.
 
+## What data exists, and who owns it
+
+Four kinds, and the boundary between them decides most of the design.
+
+| Data                        | Written by           | Lives                    | May a reader depend on it          |
+| --------------------------- | -------------------- | ------------------------ | ---------------------------------- |
+| `plugins.txt`               | a human              | commits forever          | no — it is an input, not an output |
+| `config.json`               | a human              | commits forever          | no                                 |
+| `index.json` + `icons/`     | the build, every run | one deployment at a time | **yes** — this is the contract     |
+| `status.json`               | the build, every run | one deployment at a time | no — it describes the build        |
+| `build/diagnostics.json`    | the build, every run | one CI run (artifact)    | no — it describes build quality    |
+| `diagnostics-baseline.json` | a human              | commits forever          | no                                 |
+
+Three rules follow, and they are the whole of the data policy:
+
+- **Only what is published is contract.** `index.json` is deployed and read; everything else is either
+  an input to producing it or a report about producing it. Build quality never enters the artifact,
+  because format 1 has no member for it and the reader would drop it silently anyway.
+- **The build is a projection, not a database.** Each run recomputes everything from npm and the two
+  hand-written files. There is no incremental state to get out of sync, no cache to invalidate, and no
+  way for yesterday's failure to leak into today's output. The cost is refetching every package hourly;
+  the benefit is that any run can be reproduced from its inputs alone.
+- **Facts are fetched, decisions are written.** Sort keys, categories and overrides are decisions and
+  live in `config.json`; versions, timestamps and texts are facts and are never stored here. An
+  override that merely repeats a published fact is reported as dead weight (`override-redundant`)
+  rather than kept "just in case" — a cached degradation nobody revisits is how a repository rots.
+
 ## Decisions
 
 - **The index is generated and never committed.** A committed copy would be a second source of truth
@@ -42,8 +69,9 @@ values, and no document keeps a second copy of the current category list.
 - **Five versions per plugin, prereleases included.** Enough history to roll back one or two releases,
   small enough that the index stays a few kilobytes rather than a full release archive. It does not
   change what DSH installs by default: the reader still picks the highest stable version. Anything
-  older than the fifth is installed with `dsh plugin add <name>@<version>` and is deliberately not
-  advertised. `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
+  older than the fifth is deliberately not advertised; the reader offers the listed versions, and how to
+  install one from the command line belongs to the organization's own page rather than here.
+  `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
 - **Deployment happens only when `index.json` changed.** The deployment history then means "the
   content changed here" instead of 24 identical deploys a day.
 - **`status.json` exists because the format has no time member.** With deployment deduplicated, the
