@@ -5,8 +5,8 @@
       "zh": "DSH 插件实验室"
     },
     "description": {
-      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: retrieval, account, models and development tooling.",
-      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：检索、账户、模型接入与开发工具。"
+      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, and additions to the interface.",
+      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型，以及界面增强。"
     },
     "indexUrl": "https://dsh-plugin-lab.github.io/market/index.json"
   },
