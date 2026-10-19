@@ -1,0 +1,10 @@
+{
+  "_note": [
+    "Diagnostic codes this build is allowed to emit. `pnpm run check` fails when the build produces a",
+    "code that is not listed here, so a new silent degradation becomes a red check with a one-line diff",
+    "to review instead of a WARN nobody reads. When a degradation is understood and accepted, add its",
+    "code here in the same commit; when it is fixed, remove it — a listed code that no longer occurs is",
+    "reported too, so the baseline cannot quietly rot."
+  ],
+  "codes": []
+}

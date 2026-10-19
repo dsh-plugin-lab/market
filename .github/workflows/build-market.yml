@@ -83,6 +83,12 @@ jobs:
       # quietly resolve a different validator than the one that was tested.
       - run: pnpm install --frozen-lockfile --config.node-linker=hoisted
 
+      # No network, no clock: the tar reader, the URL normalisation and the diagnostic codes. The tar
+      # reader is the one piece whose failure is silent by design, so it is the one piece that must be
+      # pinned before a build is trusted.
+      - name: Test the scripts
+        run: pnpm run test
+
       - name: Build the index
         run: pnpm run build
         env:
@@ -91,9 +97,33 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       # The same validator DSH runs when it reads an index. A red step here means the index would
-      # have been rejected on the user's machine, so it must never be deployed.
+      # have been rejected on the user's machine, so it must never be deployed. It also ratchets the
+      # build's degradation codes against diagnostics-baseline.json.
       - name: Validate the index
         run: pnpm run check
+
+      # Build quality is not part of the index, but it still has to be visible somewhere. The summary
+      # shows it on the run page; the artifact keeps the detail after the log expires.
+      - name: Summarise the build diagnostics
+        if: always()
+        run: |
+          if [ -f build/diagnostics.json ]; then
+            count=$(jq -r '.count' build/diagnostics.json)
+            codes=$(jq -r 'if (.codes | length) == 0 then "none" else (.codes | join(", ")) end' build/diagnostics.json)
+            {
+              echo '### Market build diagnostics'
+              echo ''
+              echo "\`${count}\` occurrence(s): \`${codes}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostics
+          path: build/diagnostics.json
+          if-no-files-found: ignore
 
       # Compare against what readers are being served right now. A failed fetch means "deploy", not
       # "skip": a stale live copy is worse than a redundant deployment.

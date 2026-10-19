@@ -22,6 +22,17 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import semver from 'semver'
+import { Diagnostics } from './lib/diagnostics.mjs'
+import {
+  authorOf,
+  keywordsOf,
+  localeText,
+  localizedText,
+  repositoryOf,
+  repositoryUrl,
+  slugOf,
+} from './lib/normalize.mjs'
+import { readTar } from './lib/tar.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const OUT = join(ROOT, 'public')
@@ -31,22 +42,22 @@ const GITHUB_API = 'https://api.github.com'
 
 /** The npm package-name grammar, so a typo in `plugins.txt` fails here and not in DSH. */
 const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/u
-/** `locale/<language>.json` inside a published package; the language id is the file name. */
-const LANGUAGE_FILE = /^package\/locale\/([a-z]{2,8}(?:-[a-z0-9]{1,8})*)\.json$/u
 const ICON_EXTENSIONS = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp'])
 
 const FETCH_TIMEOUT_MS = 30_000
 const FETCH_ATTEMPTS = 3
 const CONCURRENCY = 4
 
-const warnings = []
+/**
+ * Every degraded outcome goes through here with a stable code. Free-text warnings were invisible:
+ * they scrolled past in a CI log and nothing compared this build with the last one. The codes are
+ * what `diagnostics-baseline.json` ratchets against.
+ */
+const diagnostics = new Diagnostics()
+const warn = (code, message, context) => diagnostics.add(code, message, context)
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 const info = (message) => console.log(`  [INFO] ${message}`)
 const ok = (message) => console.log(`  [OK]   ${message}`)
-function warn(message) {
-  warnings.push(message)
-  console.log(`  [WARN] ${message}`)
-}
 function fail(message) {
   throw new Error(message)
 }
@@ -106,7 +117,7 @@ async function latestDsh() {
     })
     return packument['dist-tags']?.latest
   } catch (error) {
-    warn(`could not read the current DSH version (${error.message})`)
+    warn('dsh-version-unavailable', `could not read the current DSH version (${error.message})`)
     return undefined
   }
 }
@@ -155,175 +166,18 @@ async function getGithubStars(owner, repo, cache) {
     const body = await getJson(`${GITHUB_API}/repos/${key}`, { headers })
     stars = body.stargazers_count
   } catch (error) {
-    warn(`github stars for ${key} unavailable: ${error.message}`)
+    warn('stars-unavailable', `github stars for ${key} unavailable: ${error.message}`)
   }
   cache.set(key, stars)
   return stars
 }
 
-// ---------------------------------------------------------------------------
-// Tar (the published package, so `locale/` and the icon are exactly what users install)
-// ---------------------------------------------------------------------------
-
-function tarString(block, offset, length) {
-  const slice = block.subarray(offset, offset + length)
-  const end = slice.indexOf(0)
-  return slice.subarray(0, end === -1 ? slice.length : end).toString('utf8')
-}
-
-function paxPath(bytes) {
-  let path
-  for (const line of bytes.toString('utf8').split('\n')) {
-    const match = /^\d+ ([\w.]+)=(.*)$/u.exec(line)
-    if (match?.[1] === 'path') path = match[2]
-  }
-  return path
-}
-
-/** A minimal ustar reader: enough for a `pnpm pack` / `npm publish` tarball, no dependency. */
-function readTar(buffer) {
-  const entries = new Map()
-  let offset = 0
-  let pendingName
-  while (offset + 512 <= buffer.length) {
-    const header = buffer.subarray(offset, offset + 512)
-    if (header.every((byte) => byte === 0)) break
-    const name = tarString(header, 0, 100)
-    const size = Number.parseInt(tarString(header, 124, 12).trim() || '0', 8)
-    const flag = String.fromCharCode(header[156]) || '0'
-    const prefix = tarString(header, 345, 155)
-    const dataStart = offset + 512
-    const data = buffer.subarray(dataStart, dataStart + size)
-
-    if (flag === 'x') {
-      pendingName = paxPath(data)
-    } else if (flag === 'L') {
-      pendingName = data.toString('utf8').replace(/\0+$/u, '')
-    } else if (flag === '0' || flag === '\0' || flag === '7') {
-      const path = pendingName ?? (prefix === '' ? name : `${prefix}/${name}`)
-      entries.set(path, data)
-      pendingName = undefined
-    }
-    offset = dataStart + Math.ceil(size / 512) * 512
-  }
-  return entries
-}
-
+/** The published tarball, so `locale/` and the icon are exactly what users install. */
 async function getPublishedPackage(tarballUrl) {
   const response = await get(tarballUrl, { accept: 'application/octet-stream' })
   const gzipped = Buffer.from(await response.arrayBuffer())
   return readTar(gunzipSync(gzipped))
 }
-
-// ---------------------------------------------------------------------------
-// Field derivation
-// ---------------------------------------------------------------------------
-
-/** `git+https://github.com/o/r.git`, `git@github.com:o/r.git` and `github:o/r` all become a page URL. */
-function repositoryUrl(raw) {
-  if (typeof raw !== 'string' || raw.trim() === '') return undefined
-  let url = raw.trim()
-  url = url.replace(/^git\+/u, '')
-  const scp = /^git@([^:]+):(.+)$/u.exec(url)
-  if (scp) url = `https://${scp[1]}/${scp[2]}`
-  const shorthand = /^github:(.+)$/u.exec(url)
-  if (shorthand) url = `https://github.com/${shorthand[1]}`
-  url = url.replace(/^git:\/\//u, 'https://')
-  url = url.replace(/^ssh:\/\/git@/u, 'https://')
-  url = url.replace(/[?#].*$/u, '')
-  url = url.replace(/\.git$/u, '')
-  if (!/^https?:\/\//u.test(url)) return undefined
-  try {
-    if (!URL.canParse(url)) return undefined
-  } catch {
-    return undefined
-  }
-  return url
-}
-
-function repositoryOf(source, layout) {
-  if (source === undefined || source === null) return undefined
-  const raw = typeof source === 'string' ? { url: source } : source
-  const url = repositoryUrl(raw.url)
-  if (url === undefined) return undefined
-  const repository = { url }
-  const directory = raw.directory ?? layout.directory
-  if (typeof directory === 'string' && directory !== '') {
-    repository.directory = directory.replace(/^\.\//u, '').replace(/\/$/u, '')
-  }
-  return repository
-}
-
-function authorOf(raw) {
-  if (typeof raw === 'string') return raw.trim() === '' ? undefined : raw.trim()
-  if (raw && typeof raw.name === 'string' && raw.name.trim() !== '') return raw.name.trim()
-  return undefined
-}
-
-/** `LocalizedText`: a string, or a record of lowercase language ids that must include `en`. */
-function localizedText(over, fromLocale, fallback) {
-  const text = {}
-  for (const [language, value] of Object.entries(fromLocale ?? {})) {
-    if (typeof value === 'string' && value.trim() !== '') text[language] = value.trim()
-  }
-  if (typeof fallback === 'string' && fallback.trim() !== '' && text.en === undefined) {
-    text.en = fallback.trim()
-  }
-  for (const [language, value] of Object.entries(over ?? {})) {
-    if (typeof value === 'string' && value.trim() !== '') text[language] = value.trim()
-  }
-  if (Object.keys(text).length === 0) return undefined
-  if (text.en === undefined) {
-    warn(`no English text (languages: ${Object.keys(text).join(', ')}) — the index requires "en"`)
-    return undefined
-  }
-  return text
-}
-
-/** The `meta.title` / `meta.description` pairs of `locale/*.json`, keyed by the file's language id. */
-function localeText(entries) {
-  const titles = {}
-  const descriptions = {}
-  const found = []
-  for (const [path, bytes] of [...entries].sort(([left], [right]) => left.localeCompare(right))) {
-    const match = LANGUAGE_FILE.exec(path)
-    if (match === null) continue
-    let parsed
-    try {
-      parsed = JSON.parse(bytes.toString('utf8'))
-    } catch (error) {
-      warn(`${path}: not valid JSON (${error.message})`)
-      continue
-    }
-    const language = match[1]
-    const title = parsed?.meta?.title ?? parsed?.title
-    const description = parsed?.meta?.description ?? parsed?.description
-    if (typeof title === 'string') titles[language] = title
-    if (typeof description === 'string') descriptions[language] = description
-    found.push(language)
-  }
-  if (found.length === 0) warn('no locale/<language>.json in the published package')
-  return { titles, descriptions, languages: found }
-}
-
-function slugOf(name) {
-  return name.replace(/^@/u, '').replace(/\//gu, '-')
-}
-
-function keywordsOf(settings, ...lists) {
-  const words = []
-  for (const list of lists) {
-    for (const word of list ?? []) {
-      if (typeof word !== 'string') continue
-      const trimmed = word.trim()
-      if (trimmed === '') continue
-      if (settings.keywordBlocklist.has(trimmed.toLowerCase())) continue
-      if (!words.includes(trimmed)) words.push(trimmed)
-    }
-  }
-  return words.slice(0, settings.maxKeywords)
-}
-
 // ---------------------------------------------------------------------------
 // Curation
 // ---------------------------------------------------------------------------
@@ -369,7 +223,7 @@ async function sortKeysOf(explicit, repository, stars) {
     if (requested === true) {
       const match = /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/?$/u.exec(repository?.url ?? '')
       if (match === null) {
-        warn(`sortKeys.${id}: no repository URL to read GitHub stars from`)
+        warn('sortkey-unresolved', `sortKeys.${id}: no repository URL to read GitHub stars from`)
         continue
       }
       const count = await stars(match[1], match[2])
@@ -382,7 +236,10 @@ async function sortKeysOf(explicit, repository, stars) {
       if (typeof count === 'number') values[id] = count
       continue
     }
-    warn(`sortKeys.${id}: ${JSON.stringify(value)} is neither a number nor a supported source`)
+    warn(
+      'sortkey-unresolved',
+      `sortKeys.${id}: ${JSON.stringify(value)} is neither a number nor a supported source`,
+    )
   }
   return values
 }
@@ -406,7 +263,9 @@ async function buildPlugin(name, config, settings, stars) {
     // A package that has only ever published prereleases is not a reason to take the market down.
     selected.push(published[0])
     warn(
+      'prerelease-only',
       `${name}: no stable version is published, so ${published[0]} (a prerelease) is listed instead`,
+      { plugin: name },
     )
   }
   const latestTagged = packument['dist-tags']?.latest
@@ -415,7 +274,10 @@ async function buildPlugin(name, config, settings, stars) {
     // A stable `latest` that is missing means this build dropped the newest release — a defect.
     // A prerelease `latest` is simply excluded by a stable-only policy, which is not a defect.
     if (semver.prerelease(latestTagged) === null) fail(message)
-    else warn(`${message} — it is a prerelease, and this build lists stable versions only`)
+    else
+      warn('latest-tag-prerelease', `${message} — it is a prerelease, and it is not listed`, {
+        plugin: name,
+      })
   }
 
   const explicit = config.plugins?.[name] ?? {}
@@ -425,11 +287,15 @@ async function buildPlugin(name, config, settings, stars) {
 
   // The published bytes, for the two things the packument does not carry.
   let entries = new Map()
+  let tarballUnreadable = false
   try {
     entries = await getPublishedPackage(newestManifest.dist.tarball)
   } catch (error) {
+    tarballUnreadable = true
     warn(
+      'tarball-unreadable',
       `${name}: the ${newest} tarball is unreadable (${error.message}) — falling back to registry text`,
+      { plugin: name },
     )
   }
   const manifest = entries.has('package/package.json')
@@ -442,14 +308,18 @@ async function buildPlugin(name, config, settings, stars) {
     const timestamp = Date.parse(packument.time?.[version] ?? '')
     if (!Number.isFinite(timestamp)) {
       warn(
+        'version-skipped',
         `${name}@${version}: the registry publishes no timestamp for it — the version is skipped`,
+        { plugin: name, version },
       )
       continue
     }
     const publishTimestamp = Math.floor(timestamp / 1000)
     if (publishTimestamp < 0 || publishTimestamp >= 1e11) {
       warn(
+        'version-skipped',
         `${name}@${version}: publish time ${publishTimestamp} is out of range — the version is skipped`,
+        { plugin: name, version },
       )
       continue
     }
@@ -459,7 +329,9 @@ async function buildPlugin(name, config, settings, stars) {
       const commit = manifestVersion.gitHead
       if (typeof commit !== 'string' || !/^[0-9a-f]{40}$/u.test(commit)) {
         warn(
+          'version-skipped',
           `${name}@${version}: no 40-hex gitHead, so a git source cannot be pinned — the version is skipped`,
+          { plugin: name, version },
         )
         continue
       }
@@ -481,12 +353,17 @@ async function buildPlugin(name, config, settings, stars) {
     const dsh = manifestVersion.engines?.dsh
     if (typeof dsh === 'string' && dsh.trim() !== '') {
       if (dsh.startsWith('workspace:')) {
-        warn(`${name}@${version}: engines.dsh is a workspace range — it is not published`)
+        warn(
+          'engine-invalid',
+          `${name}@${version}: engines.dsh is a workspace range — it is not published`,
+        )
       } else if (semver.validRange(dsh) !== null) {
         engines.dsh = dsh
       } else {
         warn(
+          'engine-invalid',
           `${name}@${version}: engines.dsh ${JSON.stringify(dsh)} is not a SemVer range — it is omitted`,
+          { plugin: name, version },
         )
       }
     }
@@ -494,28 +371,43 @@ async function buildPlugin(name, config, settings, stars) {
   }
   if (versions.length === 0) fail(`${name}: no listed version could be described`)
 
-  const locale = localeText(entries)
-  const title = localizedText(explicit.title, locale.titles, undefined)
+  // One unreadable tarball already says why the display text and the icon are missing; reporting the
+  // four consequences separately would turn one cause into four codes and hide the cause in the noise.
+  const locale = tarballUnreadable
+    ? { titles: {}, descriptions: {}, languages: [] }
+    : localeText(warn, entries)
+  const title = localizedText(warn, explicit.title, locale.titles, undefined)
   const description = localizedText(
+    warn,
     explicit.description,
     locale.descriptions,
     packument.description,
   )
   if (title === undefined)
-    warn(`${name}: no title in any language — the index shows the package name`)
+    warn('title-missing', `${name}: no title in any language — the index shows the package name`)
 
   // Icon: an explicit URL/data URL, otherwise the file the package itself points at.
   let icon
   if (typeof explicit.icon === 'string' && explicit.icon.trim() !== '') {
     icon = explicit.icon.trim()
-  } else if (typeof manifest.icon === 'string' && manifest.icon.trim() !== '') {
+  } else if (
+    !tarballUnreadable &&
+    typeof manifest.icon === 'string' &&
+    manifest.icon.trim() !== ''
+  ) {
     const iconPath = `package/${manifest.icon.trim().replace(/^\.\//u, '')}`
     const bytes = entries.get(iconPath)
     const extension = extname(iconPath).toLowerCase()
     if (bytes === undefined) {
-      warn(`${name}: package.json names ${manifest.icon}, but the tarball does not contain it`)
+      warn(
+        'icon-declared-missing',
+        `${name}: package.json names ${manifest.icon}, but the tarball does not contain it`,
+      )
     } else if (!ICON_EXTENSIONS.has(extension)) {
-      warn(`${name}: ${manifest.icon} is not an SVG/PNG/JPEG/WebP file — no icon is listed`)
+      warn(
+        'icon-extension',
+        `${name}: ${manifest.icon} is not an SVG/PNG/JPEG/WebP file — no icon is listed`,
+      )
     } else {
       const file = `icons/${slugOf(name)}${extension}`
       await mkdir(join(OUT, 'icons'), { recursive: true })
@@ -527,7 +419,9 @@ async function buildPlugin(name, config, settings, stars) {
   const repository = repositoryOf(explicit.repository ?? packument.repository, {})
   if (repository === undefined && packument.repository !== undefined) {
     warn(
+      'repository-invalid',
       `${name}: repository ${JSON.stringify(packument.repository)} is not an http(s) URL — it is omitted`,
+      { plugin: name },
     )
   }
 
@@ -567,7 +461,7 @@ async function buildPlugin(name, config, settings, stars) {
 // ---------------------------------------------------------------------------
 
 /** Declarations no plugin references are dropped, so the Discover page shows no empty filter. */
-function pruneMetadata(metadata, plugins, enabled) {
+function pruneMetadata(metadata, plugins, enabled, quietGroups = new Set()) {
   if (!enabled) return metadata
   const usedCategories = new Set(plugins.map((plugin) => plugin.metadata.category).filter(Boolean))
   const usedLabels = new Set(plugins.flatMap((plugin) => plugin.metadata.labels))
@@ -576,9 +470,12 @@ function pruneMetadata(metadata, plugins, enabled) {
     const kept = {}
     for (const [id, declaration] of Object.entries(group)) {
       if (used.has(id)) kept[id] = declaration
+      else if (quietGroups.has(group)) continue
       else
         warn(
+          'metadata-unused',
           `metadata.${group === metadata.categories ? 'categories' : 'group'}: "${id}" is declared but unused — dropped`,
+          { id },
         )
     }
     return kept
@@ -650,7 +547,12 @@ async function main() {
     sortKeys: config.metadata?.sortKeys ?? {},
   }
   validateDeclarations(declared, plugins)
-  const metadata = pruneMetadata(declared, plugins, settings.pruneUnusedMetadata)
+  // A star count that could not be read leaves its sort key unused; reporting that as an unused
+  // declaration would blame the curation for a network problem.
+  const quiet = diagnostics.codes.includes('stars-unavailable')
+    ? new Set([declared.sortKeys])
+    : new Set()
+  const metadata = pruneMetadata(declared, plugins, settings.pruneUnusedMetadata, quiet)
 
   const index = {
     format: 1,
@@ -670,9 +572,18 @@ async function main() {
     plugins: plugins.length,
     versions: plugins.reduce((total, plugin) => total + plugin.versions.length, 0),
     ...(dsh === undefined ? {} : { dsh }),
-    warnings: warnings.length,
+    warnings: diagnostics.size,
   }
   await writeFile(join(OUT, 'status.json'), `${JSON.stringify(status, null, 2)}\n`, 'utf8')
+
+  // Build quality, deliberately outside `public/`: format 1 has no member for it, the deployed site
+  // is the consumer's contract, and this file is for CI and maintainers.
+  await mkdir(join(ROOT, 'build'), { recursive: true })
+  await writeFile(
+    join(ROOT, 'build', 'diagnostics.json'),
+    `${JSON.stringify(diagnostics.toJSON(), null, 2)}\n`,
+    'utf8',
+  )
 
   console.log('')
   console.log(
@@ -687,9 +598,12 @@ async function main() {
     )
   }
   console.log('')
-  ok(`public/index.json written (${plugins.length} plugins, ${warnings.length} warning(s))`)
+  ok(`public/index.json written (${plugins.length} plugins, ${diagnostics.size} diagnostic(s))`)
   ok(`index URL: ${settings.indexUrl}`)
-  if (warnings.length > 0) info('warnings are listed above; the build still produced a valid index')
+  if (diagnostics.size > 0) {
+    info('diagnostics are listed above; the build still produced a valid index')
+    info(`codes: ${diagnostics.codes.join(', ')}`)
+  }
 }
 
 main().catch((error) => {

@@ -52,6 +52,15 @@ values, and no document keeps a second copy of the current category list.
   scope, so a pull request can run the whole build and validator and still not reach the live site.
 - **A failed build opens an issue.** A scheduled workflow's failure notification reaches only whoever
   last edited the `cron` line, so a silent index would otherwise be the default outcome.
+- **Degradation is recorded outside the product.** One plugin's broken packaging must not take the
+  whole index down, so the build continues and loses something: display text, an icon, a version. Left
+  in a log, that loss is invisible; put into `index.json`, it would be dropped by the reader (the
+  format defines no member for it) and would put build metadata into the consumer's contract. So it
+  goes to `build/diagnostics.json` — read by CI, uploaded as an artifact, never deployed — and the
+  codes are ratcheted against a committed `diagnostics-baseline.json`. A new degradation fails `check`
+  instead of scrolling past. Codes that depend on the machine (a star count, the current DSH version)
+  are reported but never ratcheted, because a baseline that flips on environment alone teaches people
+  to ignore it.
 - **Display facts are passed through, not normalised.** `author`, `homepage` and `repository` appear as
   the package publishes them. When they disagree across packages, the fix belongs in those packages:
   an override here would hide the drift, not remove it.

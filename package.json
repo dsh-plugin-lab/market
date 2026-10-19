@@ -12,6 +12,8 @@
     "build": "node scripts/build-index.mjs",
     "check": "node scripts/check-index.mjs",
     "index": "node scripts/build-index.mjs && node scripts/check-index.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "verify": "npm run test && npm run index && npm run format:check",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

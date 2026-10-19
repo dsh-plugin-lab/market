@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import semver from 'semver'
+import { ENVIRONMENTAL } from './lib/diagnostics.mjs'
 import {
   MarketIndexError,
   marketInstallTarget,
@@ -25,6 +26,31 @@ import {
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PUBLIC = join(ROOT, 'public')
 const INDEX_FILE = join(PUBLIC, 'index.json')
+const DIAGNOSTICS_FILE = join(ROOT, 'build', 'diagnostics.json')
+const BASELINE_FILE = join(ROOT, 'diagnostics-baseline.json')
+
+/** What the build recorded about its own quality; absent when only `check` was run. */
+async function readDiagnostics() {
+  if (!existsSync(DIAGNOSTICS_FILE)) {
+    warn(`${DIAGNOSTICS_FILE} is missing — run \`pnpm run build\` first to ratchet diagnostics`)
+    return undefined
+  }
+  return JSON.parse(await readFile(DIAGNOSTICS_FILE, 'utf8'))
+}
+
+/** The codes this repository has explicitly accepted. */
+async function readBaseline() {
+  if (!existsSync(BASELINE_FILE)) {
+    error(`${BASELINE_FILE} is missing — a build must have something to ratchet against`)
+    return []
+  }
+  const baseline = JSON.parse(await readFile(BASELINE_FILE, 'utf8'))
+  if (!Array.isArray(baseline.codes)) {
+    error(`${BASELINE_FILE}: "codes" must be an array`)
+    return []
+  }
+  return baseline.codes
+}
 
 /** Members format 1 defines per record; anything else is dropped by the validator. */
 const ALLOWED = {
@@ -160,6 +186,49 @@ async function main() {
     throw failure
   }
   ok(`parseMarketIndex accepted format ${index.format}`)
+
+  // The ratchet: a degradation the build emitted but the baseline does not list is a new silent loss,
+  // and it fails here rather than scrolling past in a log. The reverse direction is reported too, so a
+  // baseline cannot quietly keep allowances nobody needs any more.
+  //
+  // Codes that depend on the machine rather than on the plugins are reported and never compared: a
+  // local run without a GitHub token hits the rate limit, CI passes a token and does not, and a
+  // baseline that flips on environment alone teaches people to ignore it.
+  const diagnostics = await readDiagnostics()
+  if (diagnostics !== undefined) {
+    const baseline = await readBaseline()
+    const ratcheted = diagnostics.codes.filter((code) => !ENVIRONMENTAL.has(code))
+    const environmental = diagnostics.codes.filter((code) => ENVIRONMENTAL.has(code))
+    const current = new Set(ratcheted)
+    const allowed = new Set(baseline.filter((code) => !ENVIRONMENTAL.has(code)))
+    for (const code of ratcheted) {
+      if (!allowed.has(code)) {
+        const items = diagnostics.items.filter((item) => item.code === code)
+        const context = items
+          .slice(0, 3)
+          .map((item) => [item.plugin, item.version].filter(Boolean).join('@') || item.message)
+          .join('; ')
+        error(
+          `new diagnostic ${code} (${items.length}x) — ${context}. Understand it, then add "${code}" to diagnostics-baseline.json or fix the cause`,
+        )
+      }
+    }
+    for (const code of allowed) {
+      if (!current.has(code)) {
+        warn(
+          `diagnostics-baseline.json lists "${code}", but this build did not emit it — remove it from the baseline`,
+        )
+      }
+    }
+    for (const code of environmental) {
+      warn(`${code}: environment-dependent, reported but not ratcheted (no GitHub token?)`)
+    }
+    info(
+      `diagnostics: ${diagnostics.count} occurrence(s), codes ${
+        diagnostics.codes.length === 0 ? 'none' : diagnostics.codes.join(', ')
+      }`,
+    )
+  }
 
   for (const plugin of index.plugins) {
     if (

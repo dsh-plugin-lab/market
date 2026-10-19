@@ -12,12 +12,14 @@
 | 目的                   | 命令                                                          |
 | ---------------------- | ------------------------------------------------------------- |
 | 装依赖（与锁文件一致） | `pnpm install --frozen-lockfile --config.node-linker=hoisted` |
+| 跑脚本测试             | `pnpm run test`                                               |
 | 构建索引               | `pnpm run build`                                              |
 | 校验索引               | `pnpm run check`                                              |
 | 构建 + 校验（验收）    | `pnpm run index`                                              |
+| 全量验收               | `pnpm run verify`（test + index + format:check）              |
 | 格式化                 | `pnpm run format` / `pnpm run format:check`                   |
 
-- `check` 读的是 `public/index.json`，必须先 build；`pnpm run index` 就是这两步连跑。
+- `check` 读的是 `public/index.json` 与 `build/diagnostics.json`，必须先 build；`pnpm run index` 是两步连跑。
 - `build` 要联网：npm registry；声明了 `githubStars` 排序键时还要 GitHub API。
 - 图标按索引 URL 解析，本地自测用 `node scripts/check-index.mjs --url http://127.0.0.1:8080/index.json`。
 - 退出码 0 不够：输出表要读（见「验证方式」）。
@@ -55,8 +57,11 @@
    `build.includePrerelease: true` 决定这一点。回滚到第五个之前、或装未列出的预发布，用
    `pnpm add <name>@<version>` 直装，别去索引里找。要恢复全量把 `maxVersionsPerPlugin` 写 `0`。
    **默认版本不受影响**：读者永远选「最高的非预发布版本」，列了预发布也不会让它变成默认。
-5. **降级是静默的，只有 WARN。** 星标拿不到 → 星标排序整项消失；tarball 读不到 → 标题与图标一起退回包名。
-   索引仍然合法。先读 build 输出的 WARN，再怀疑配置。
+5. **降级不报错，但会被棘轮抓住。** 每条降级带一个稳定 code，写进 `build/diagnostics.json`（不进产物）。
+   `check` 比对 `diagnostics-baseline.json`：**出现基线没有的 code 就红**，基线里留着不再发生的 code 也提示。
+   所以「星标拿不到 → 星标排序整项消失」「tarball 读不到 → 标题与图标一起退回包名」这类静默退化，现在会在
+   PR 上红，而不是等用户说「这插件怎么是空白的」。要接受某个降级，就在同一次提交里把 code 加进基线。
+   `stars-unavailable` / `dsh-version-unavailable` 属环境相关（本地无 token 会撞限流），只报告不进棘轮。
 6. **展示字段一律透传，不在本仓美化。** `author` / `homepage` / `repository` 是包自己发布的值；写法不一致或为空时，
    正解是回源改 + 发版。在 `config.json` 覆盖会把漂移藏起来，下次照样漂。
 
