@@ -8,7 +8,7 @@ import {
   repositoryOf,
   repositoryUrl,
   slugOf,
-} from '../scripts/lib/normalize.mjs'
+} from '../scripts/lib/shared/text.mjs'
 
 const recorder = () => {
   const seen = []

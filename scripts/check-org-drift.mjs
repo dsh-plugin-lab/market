@@ -23,61 +23,15 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 import semver from 'semver'
+import { organizationRepositories, repositoryManifest } from './lib/sources/github.mjs'
+import { json } from './lib/shared/http.mjs'
+import { ROOT, flag, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const GITHUB_API = 'https://api.github.com'
-
-const info = (message) => console.log(`  [INFO] ${message}`)
-const warn = (message) => console.log(`  [WARN] ${message}`)
-const ok = (message) => console.log(`  [OK]   ${message}`)
-
-function flag(name, fallback) {
-  const index = process.argv.indexOf(`--${name}`)
-  return index === -1 ? fallback : process.argv[index + 1]
-}
-
-function headers(accept = 'application/vnd.github+json') {
-  const base = { accept, 'x-github-api-version': '2022-11-28' }
-  if (process.env.GITHUB_TOKEN) base.authorization = `Bearer ${process.env.GITHUB_TOKEN}`
-  return base
-}
-
-async function getJson(url, accept) {
-  const response = await fetch(url, {
-    headers: headers(accept),
-    signal: AbortSignal.timeout(20_000),
-  })
-  if (!response.ok) throw new Error(`${url}: HTTP ${response.status} ${response.statusText}`)
-  return response.json()
-}
-
-/** Every public repository in the organization, following pagination. */
-async function listRepositories(org) {
-  const repositories = []
-  for (let page = 1; page <= 10; page += 1) {
-    const batch = await getJson(
-      `${GITHUB_API}/orgs/${org}/repos?per_page=100&page=${page}&type=public`,
-    )
-    repositories.push(...batch)
-    if (batch.length < 100) break
-  }
-  return repositories
-}
-
-/**
- * A plugin declares `dsh` in its manifest. Reading the manifest from the raw default branch is enough
- * and costs one request per repository; the marketplace itself never reads a checkout, and neither
- * should this — but this is asking "what does the repository say", which is exactly the comparison.
- */
-async function readManifest(repository) {
-  const branch = repository.default_branch ?? 'main'
+/** The manifest of a repository, or `undefined` when it has none — absence is the ordinary case. */
+async function manifestOf(repository) {
   try {
-    return await getJson(
-      `https://raw.githubusercontent.com/${repository.full_name}/${branch}/package.json`,
-      'application/vnd.github.raw',
-    )
+    return await repositoryManifest(repository.full_name, repository.default_branch ?? 'main')
   } catch {
     return undefined
   }
@@ -97,13 +51,13 @@ async function main() {
 
   info(`organization: ${org}, ${listed.length} plugin(s) listed`)
 
-  const repositories = await listRepositories(org)
+  const repositories = await organizationRepositories(org)
   info(`${repositories.length} public repository(ies)`)
 
   const findings = []
   const plugins = []
   for (const repository of repositories) {
-    const manifest = await readManifest(repository)
+    const manifest = await manifestOf(repository)
     if (manifest === undefined || typeof manifest !== 'object') continue
     if (manifest.dsh === undefined) continue
     if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') continue
@@ -119,7 +73,7 @@ async function main() {
       })
       continue
     }
-    const packument = await getJson(
+    const packument = await json(
       `https://registry.npmjs.org/${plugin.name.replace('/', '%2F')}`,
     ).catch(() => undefined)
     const published = packument?.['dist-tags']?.latest
@@ -169,7 +123,4 @@ async function main() {
   if (strict && findings.length > 0) process.exitCode = 1
 }
 
-main().catch((failure) => {
-  console.error(`  [ERR]  ${failure.message}`)
-  process.exitCode = 1
-})
+main().catch(reportFatal)

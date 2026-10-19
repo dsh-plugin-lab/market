@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { readTar } from '../scripts/lib/tar.mjs'
+import { readTar } from '../scripts/lib/shared/tar.mjs'
 
 /** A ustar header block. Checksums are not verified by the reader, so they are left zero. */
 function header({ name, size = 0, flag = '0', prefix = '' }) {

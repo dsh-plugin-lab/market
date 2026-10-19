@@ -14,16 +14,17 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 import semver from 'semver'
-import { ENVIRONMENTAL } from './lib/diagnostics.mjs'
+import { ENVIRONMENTAL } from './lib/domain/diagnosis.mjs'
+import { findUndefinedMembers } from './lib/domain/contract.mjs'
+import { latestDsh } from './lib/sources/npm.mjs'
+import { ROOT, flag, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
 import {
   MarketIndexError,
   marketInstallTarget,
   parseMarketIndex,
 } from '@deepseek-ai/dsh-plugin-market-index'
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PUBLIC = join(ROOT, 'public')
 const INDEX_FILE = join(PUBLIC, 'index.json')
 const DIAGNOSTICS_FILE = join(ROOT, 'build', 'diagnostics.json')
@@ -52,79 +53,14 @@ async function readBaseline() {
   return baseline.codes
 }
 
-/** Members format 1 defines per record; anything else is dropped by the validator. */
-const ALLOWED = {
-  index: ['format', 'title', 'description', 'metadata', 'plugins'],
-  metadata: ['categories', 'labels', 'sortKeys'],
-  declaration: ['title'],
-  sortKeyDeclaration: ['title', 'order'],
-  plugin: [
-    'name',
-    'title',
-    'description',
-    'icon',
-    'author',
-    'homepage',
-    'repository',
-    'metadata',
-    'versions',
-  ],
-  pluginMetadata: ['category', 'keywords', 'labels', 'sortKeys'],
-  repository: ['url', 'directory'],
-  version: ['version', 'publishTimestamp', 'source', 'engines'],
-  sourceNpm: ['type', 'registry'],
-  sourceGit: ['type', 'url', 'commit', 'path'],
-  engines: ['dsh'],
-}
-
 const problems = []
 const error = (message) => problems.push(message)
-const info = (message) => console.log(`  [INFO] ${message}`)
-const ok = (message) => console.log(`  [OK]   ${message}`)
-const warn = (message) => console.log(`  [WARN] ${message}`)
 
-function checkMembers(value, kind, path) {
-  for (const key of Object.keys(value)) {
-    if (!ALLOWED[kind].includes(key))
-      error(`${path}.${key}: format 1 does not define this member — DSH drops it silently`)
-  }
-}
-
-function walk(raw) {
-  checkMembers(raw, 'index', '$')
-  if (raw.metadata && typeof raw.metadata === 'object') {
-    checkMembers(raw.metadata, 'metadata', '$.metadata')
-    for (const group of ['categories', 'labels']) {
-      for (const [id, value] of Object.entries(raw.metadata[group] ?? {})) {
-        checkMembers(value, 'declaration', `$.metadata.${group}.${id}`)
-      }
-    }
-    for (const [id, value] of Object.entries(raw.metadata.sortKeys ?? {})) {
-      checkMembers(value, 'sortKeyDeclaration', `$.metadata.sortKeys.${id}`)
-    }
-  }
-  for (const [position, plugin] of (raw.plugins ?? []).entries()) {
-    const at = `$.plugins[${position}]`
-    checkMembers(plugin, 'plugin', at)
-    if (plugin.metadata && typeof plugin.metadata === 'object') {
-      checkMembers(plugin.metadata, 'pluginMetadata', `${at}.metadata`)
-    }
-    if (plugin.repository && typeof plugin.repository === 'object') {
-      checkMembers(plugin.repository, 'repository', `${at}.repository`)
-    }
-    for (const [versionPosition, version] of (plugin.versions ?? []).entries()) {
-      const versionAt = `${at}.versions[${versionPosition}]`
-      checkMembers(version, 'version', versionAt)
-      checkMembers(
-        version.source ?? {},
-        version.source?.type === 'git' ? 'sourceGit' : 'sourceNpm',
-        `${versionAt}.source`,
-      )
-      if (version.engines !== undefined)
-        checkMembers(version.engines, 'engines', `${versionAt}.engines`)
-    }
-  }
-}
+/**
+ * The contract lives in one place, shared with the generator: a member the format does not define is
+ * dropped by the reader silently, so writing one and checking for one must use the same table.
+ */
+const walk = (raw) => findUndefinedMembers(raw, error)
 
 /** The version DSH picks as an entry's default: the highest non-prerelease one. */
 function defaultVersion(plugin) {
@@ -146,13 +82,7 @@ function runsOn(version, dsh) {
 async function currentDsh(flagValue) {
   if (flagValue !== undefined) return flagValue
   try {
-    const response = await fetch('https://registry.npmjs.org/@deepseek-ai%2Fdsh', {
-      headers: { accept: 'application/vnd.npm.install-v1+json' },
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const packument = await response.json()
-    return packument['dist-tags']?.latest
+    return await latestDsh()
   } catch (failure) {
     warn(
       `could not read the current DSH version (${failure.message}); compatibility is not checked`,
@@ -162,13 +92,12 @@ async function currentDsh(flagValue) {
 }
 
 async function main() {
-  const urlFlag = process.argv.indexOf('--url')
   const raw = JSON.parse(await readFile(INDEX_FILE, 'utf8'))
   const config = JSON.parse(await readFile(join(ROOT, 'config.json'), 'utf8'))
   const indexUrl =
-    urlFlag === -1
-      ? (config.market?.indexUrl ?? 'https://dsh-plugin-lab.github.io/market/index.json')
-      : process.argv[urlFlag + 1]
+    flag('url', undefined) ??
+    config.market?.indexUrl ??
+    'https://dsh-plugin-lab.github.io/market/index.json'
   info(`index file: ${INDEX_FILE}`)
   info(`index URL (icons resolve against it): ${indexUrl}`)
 

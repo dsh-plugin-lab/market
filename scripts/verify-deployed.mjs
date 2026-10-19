@@ -21,20 +21,12 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { ROOT, flag, info, ok, reportFatal } from './lib/shared/cli.mjs'
+import { json } from './lib/shared/http.mjs'
 import { MarketIndexError, parseMarketIndex } from '@deepseek-ai/dsh-plugin-market-index'
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const problems = []
 const error = (message) => problems.push(message)
-const info = (message) => console.log(`  [INFO] ${message}`)
-const ok = (message) => console.log(`  [OK]   ${message}`)
-
-function flag(name, fallback) {
-  const index = process.argv.indexOf(`--${name}`)
-  return index === -1 ? fallback : process.argv[index + 1]
-}
-
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 /** The comparable shape of an index: what a reader would actually see. */
@@ -47,16 +39,13 @@ function fingerprint(index) {
     .join(' | ')
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, {
+const fetchJson = (url) =>
+  json(url, {
     redirect: 'error',
-    headers: { accept: 'application/json', 'user-agent': 'dsh-market-verify' },
-    signal: AbortSignal.timeout(20_000),
+    userAgent: 'dsh-market-verify',
+    attempts: 1,
+    timeoutMs: 20_000,
   })
-  if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
-  if (response.redirected) throw new Error('the response was redirected; the format forbids it')
-  return response.json()
-}
 
 async function main() {
   const config = JSON.parse(await readFile(join(ROOT, 'config.json'), 'utf8'))

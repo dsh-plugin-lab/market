@@ -1,5 +1,5 @@
 /**
- * Build diagnostics: every degraded outcome, with a stable code.
+ * Build diagnostics: every degraded outcome, with a stable code **and a declared severity**.
  *
  * A degradation is not an error. One plugin's broken packaging must not take the whole index down,
  * so the build keeps going and records what it lost. The record exists because a free-text warning
@@ -7,15 +7,27 @@
  * (`diagnostics-baseline.json`), and a new degradation becomes a reviewable diff instead of a
  * yellow line nobody scrolls to.
  *
+ * The severity lives here rather than at each call site. Before it did, whether the same class of
+ * failure was tolerated or fatal depended on which file caught it, so nobody could answer "what is
+ * strict?" without reading every script. Three levels:
+ *
+ *   - `degrade`     — the index is still produced and the code is **ratcheted**: it has to appear in
+ *                     the baseline before CI goes green.
+ *   - `environment` — depends on the machine, not on the plugins (no token, a rate limit). Reported,
+ *                     never ratcheted; otherwise the local run is red and CI is green for the same
+ *                     code, and people learn to ignore both.
+ *   - `fatal`       — no honest degraded output exists (bad inputs, a package that is not published,
+ *                     a document the reader would reject). Those **throw** and never reach this
+ *                     table; they are listed in docs/ARCHITECTURE.md so that the answer to "what is
+ *                     fatal?" also has one home.
+ *
  * This is deliberately **not** part of `index.json`. Format 1 defines no member for build quality,
  * the reader drops unknown members silently, and mixing the two meanings into one document would
- * put build metadata in the consumer's contract. See docs/ARCHITECTURE.md.
+ * put build metadata in the consumer's contract.
  */
 
-/** Every code the build can emit, with what it means. Tests and the baseline refer to these. */
+/** Recorded degradations: the index is still written, and the code is ratcheted. */
 export const CODES = {
-  'dsh-version-unavailable': 'The current DSH version could not be read; status.json omits it.',
-  'stars-unavailable': 'A GitHub star count could not be read; the sort key is omitted.',
   'locale-missing': 'The published package has no locale/<language>.json.',
   'locale-invalid': 'A locale file is not valid JSON.',
   'text-missing-en': 'No English text was found, and the format requires "en".',
@@ -42,13 +54,27 @@ export const CODES = {
  */
 export const ENVIRONMENTAL = new Set(['stars-unavailable', 'dsh-version-unavailable'])
 
+export const ENVIRONMENTAL_CODES = {
+  'dsh-version-unavailable': 'The current DSH version could not be read; status.json omits it.',
+  'stars-unavailable': 'A GitHub star count could not be read; the sort key is omitted.',
+}
+
+/**
+ * The severity of every code. Derived from the two tables above so the sets cannot drift apart; a
+ * code with no severity is a code nobody decided about, and `test/diagnostics.test.mjs` fails on one.
+ */
+export const SEVERITY = Object.fromEntries([
+  ...Object.keys(CODES).map((code) => [code, 'degrade']),
+  ...Object.keys(ENVIRONMENTAL_CODES).map((code) => [code, 'environment']),
+])
+
 export class Diagnostics {
   #items = []
 
   /** Record one degradation. `context` carries the plugin (and version) it happened to. */
   add(code, message, context = {}) {
-    if (CODES[code] === undefined) throw new Error(`unknown diagnostic code: ${code}`)
-    this.#items.push({ code, message, ...context })
+    if (SEVERITY[code] === undefined) throw new Error(`unknown diagnostic code: ${code}`)
+    this.#items.push({ code, severity: SEVERITY[code], message, ...context })
     console.log(`  [WARN] ${message}`)
     return this
   }
@@ -66,12 +92,18 @@ export class Diagnostics {
     return [...new Set(this.#items.map((item) => item.code))].sort()
   }
 
+  /** The codes a baseline must account for; environmental ones are reported but not counted. */
+  get ratcheted() {
+    return this.codes.filter((code) => !ENVIRONMENTAL.has(code))
+  }
+
   /** What CI uploads and a human reads; small on purpose. */
   toJSON() {
     return {
       generatedAt: new Date().toISOString(),
       count: this.size,
       codes: this.codes,
+      ratcheted: this.ratcheted,
       items: this.items,
     }
   }
