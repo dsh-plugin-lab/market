@@ -184,29 +184,39 @@ async function main() {
   const dshFlag = process.argv.indexOf('--dsh')
   const dsh = await currentDsh(dshFlag === -1 ? undefined : process.argv[dshFlag + 1])
   if (dsh !== undefined) info(`compatibility measured against DSH ${dsh}`)
-  console.log(
-    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'default'.padEnd(14)} ${'engines.dsh'.padEnd(30)} ${'runs on'.padEnd(10)} icon`,
-  )
-  console.log(
-    `  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(30)} ${'-'.repeat(10)} ----`,
-  )
-  for (const plugin of index.plugins) {
+
+  // Widths are measured, not fixed: a declared range grows every time upstream opens another
+  // prerelease line, and a hard-coded column turns that into a misaligned table nobody trusts.
+  const rows = index.plugins.map((plugin) => {
     const newest = plugin.versions[0]
-    const compatible =
-      dsh === undefined
-        ? '-'
-        : `${plugin.versions.filter((version) => runsOn(version, dsh)).length}/${plugin.versions.length}`
     if (dsh !== undefined && plugin.versions.every((version) => !runsOn(version, dsh))) {
       warn(
         `${plugin.name}: no listed version declares support for DSH ${dsh} — the entry would install nothing`,
       )
     }
-    console.log(
-      `  ${plugin.name.padEnd(28)} ${String(plugin.versions.length).padStart(8)}  ` +
-        `${String(defaultVersion(plugin)).padEnd(14)} ${(newest.engines.dsh ?? 'any').padEnd(30)} ` +
-        `${compatible.padEnd(10)} ${plugin.icon === undefined ? '-' : 'yes'}`,
-    )
-  }
+    return {
+      plugin: plugin.name,
+      versions: String(plugin.versions.length),
+      default: String(defaultVersion(plugin)),
+      engines: newest.engines.dsh ?? 'any',
+      runsOn:
+        dsh === undefined
+          ? '-'
+          : `${plugin.versions.filter((version) => runsOn(version, dsh)).length}/${plugin.versions.length}`,
+      icon: plugin.icon === undefined ? '-' : 'yes',
+    }
+  })
+  const columns = ['plugin', 'versions', 'default', 'engines', 'runsOn', 'icon']
+  const width = Object.fromEntries(
+    columns.map((column) => [
+      column,
+      Math.max(column.length, ...rows.map((row) => row[column].length)),
+    ]),
+  )
+  const line = (row) => `  ${columns.map((column) => row[column].padEnd(width[column])).join('  ')}`
+  console.log(line(Object.fromEntries(columns.map((column) => [column, column]))))
+  console.log(`  ${columns.map((column) => '-'.repeat(width[column])).join('  ')}`)
+  for (const row of rows) console.log(line(row))
   console.log('')
   for (const plugin of index.plugins) {
     info(
