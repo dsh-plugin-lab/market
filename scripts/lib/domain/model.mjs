@@ -312,5 +312,6 @@ export function buildEntry({
     newest,
     languages: locale.languages,
     assets: asset === undefined ? [] : [asset],
+    fetchedBytes: tarball.bytes ?? 0,
   }
 }

@@ -48,6 +48,13 @@ values, and no document keeps a second copy of the current category list.
   content changed here" instead of 24 identical deploys a day.
 - **`status.json` exists because the format has no time member.** With deployment deduplicated, the
   deployment history no longer answers "how old is this index", so the build writes its own record.
+- **That record carries two identities, and they are not interchangeable.** `content.hash` is what a
+  reader actually gets — the digest of the bytes written. `build.*` describes the run and changes every
+  time. Verification compares the hash, because it is the only thing that distinguishes "the deployment
+  served this build" from "the deployment served the previous generation at some earlier moment": two
+  builds a second apart differ in time and agree in bytes, while a cached response agrees in time and
+  differs in bytes. Per-plugin facts stay in a per-plugin list; a single total ("20 versions") answers
+  no question anyone actually has.
 - **Build and deploy are separate jobs, and verification is a third.** Only the deploy job holds a
   Pages environment and a write scope, so a pull request can run the whole build and validator and
   still not reach the live site. The `verify` job then asks the published URL, not the artifact: a

@@ -25,7 +25,7 @@
 - `check` 读的是 `public/index.json` 与 `build/diagnostics.json`，必须先 build；`pnpm run index` 是两步连跑。
 - `build` 要联网：npm registry；声明了 `githubStars` 排序键时还要 GitHub API。
 - 图标按索引 URL 解析，本地自测用 `node scripts/check-index.mjs --url http://127.0.0.1:8080/index.json`。
-- `verify:deployed` 要比对**本轮**构建，所以本机跑要先 build；它靠 `status.json` 的 `builtAt` 区分「已更新」与「还是旧缓存」。
+- `verify:deployed` 要比对**本轮**构建，所以本机跑要先 build；它比的是 `index.json` 的 **sha256**（`status.json` 的 `content.hash`），不是时间戳。
 - 退出码 0 不够：输出表要读（见「验证方式」）。
 
 ## 全局规则
@@ -69,7 +69,7 @@
 6. **展示字段一律透传，不在本仓美化。** `author` / `homepage` / `repository` 是包自己发布的值；写法不一致或为空时，
    正解是回源改 + 发版。在 `config.json` 覆盖会把漂移藏起来，下次照样漂。
 7. **部署成功 ≠ 读者拿到新东西。** 所以 `verify` job 在部署之后去抓**真实 URL**（带随机 query 绕开 Pages 缓存），
-   比对版本集合与本轮 `status.json` 的 `builtAt`。本机跑 `pnpm run verify:deployed` 时同理，先 build 再比。
+   比对线上字节的 sha256 与本轮 `status.json` 的 `content.hash`。本机跑 `pnpm run verify:deployed` 时同理，先 build 再比。
 8. **「合并了但没发版」市场看不见。** 索引是 npm 的快照，仓库领先 npm 时所有检查都正确且全绿——workbuddy 就这样
    卡了两周（npm 授权过期）。`pnpm run drift` 会读组织各仓的 `package.json` 与 registry 比对，漂移时后台自动开
    固定标题 issue，恢复后自动关。**它只报告，不自动改**：发版与上架是人的决定。
@@ -112,5 +112,5 @@
 - diagnostics 行要读：出现基线没允许的 code 就是新的静默退化。
 - `pnpm run drift` 看组织仓与已发布版本是否脱节（合并了没发版会出现在这里）。
 
-线上靠三处：`verify` job（抓真实 URL 比对版本与本轮 `builtAt`）、`/status.json`、以及那次 Actions 的结论
+线上靠三处：`verify` job（抓真实 URL 比对 **内容哈希**）、`/status.json`、以及那次 Actions 的结论
 （`deploy` 与 `verify` 被 skipped 且 `build` 绿，表示内容没变、无需部署）。

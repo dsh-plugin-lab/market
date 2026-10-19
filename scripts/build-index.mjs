@@ -20,6 +20,7 @@
  * lets the interesting half be tested without a network, and it is why star counts are resolved for a
  * whole plugin at once instead of lazily in the middle of curation.
  */
+import { createHash } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -111,7 +112,8 @@ async function factsFor(name, explicit, stars) {
     .at(-1)
   let tarball
   try {
-    tarball = { entries: await tarballEntries(published.versions[newest].dist.tarball) }
+    const fetched = await tarballEntries(published.versions[newest].dist.tarball)
+    tarball = { entries: fetched.entries, bytes: fetched.bytes }
   } catch (error) {
     // "We could not fetch it" is not "the package does not have it": this is a network event, and the
     // model is told so explicitly instead of inferring it from a missing value.
@@ -143,6 +145,7 @@ async function factsFor(name, explicit, stars) {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  const startedAt = new Date()
   const config = await readJson(join(ROOT, 'config.json'))
   const settings = normaliseSettings(config)
   const names = await readPlugins(join(ROOT, 'plugins.txt'))
@@ -203,10 +206,14 @@ async function main() {
     throw new Error(`the index carries a member format 1 does not define — ${message}`)
   })
 
-  await writeFile(join(OUT, 'index.json'), `${JSON.stringify(index, null, 2)}\n`, 'utf8')
+  const serialised = `${JSON.stringify(index, null, 2)}\n`
+  await writeFile(join(OUT, 'index.json'), serialised, 'utf8')
 
-  // A build heartbeat, separate from the index because format 1 has no member for it. Deployment
-  // happens only when `index.json` changed, so `builtAt` is also "when this content last changed".
+  // The index's own digest. This — not a timestamp — is what proves a deployment served *this* build:
+  // two builds a second apart produce different times and identical bytes, and a cached response
+  // produces an old time with old bytes. Only the hash answers "is the live copy this content?".
+  const contentHash = `sha256:${createHash('sha256').update(serialised).digest('hex')}`
+
   let dsh
   try {
     dsh = await latestDsh()
@@ -216,12 +223,46 @@ async function main() {
       `could not read the current DSH version (${error.message})`,
     )
   }
+
+  /**
+   * The build's own record, separate from the index because format 1 defines no member for it.
+   * Two identities, kept apart on purpose:
+   *
+   *   - `content` is what a reader actually gets, and the verifier compares it byte for byte;
+   *   - `build` describes this run and is for humans — it changes every time, so it can never be the
+   *     thing a deployment is judged by.
+   *
+   * Per-plugin facts stay per plugin. A single total ("20 versions") answers no question anyone has:
+   * the reader wants to know which versions of which plugin, and the maintainer wants to know what
+   * this run paid for each one.
+   */
   const status = {
-    builtAt: new Date().toISOString(),
-    plugins: plugins.length,
-    versions: plugins.reduce((total, plugin) => total + plugin.versions.length, 0),
-    ...(dsh === undefined ? {} : { dsh }),
-    warnings: diagnostics.size,
+    schema: 1,
+    content: {
+      hash: contentHash,
+      bytes: Buffer.byteLength(serialised),
+      pluginCount: plugins.length,
+    },
+    build: {
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt.getTime(),
+      ...(dsh === undefined ? {} : { dsh }),
+      source: 'npm',
+    },
+    plugins: built.map((entry) => ({
+      name: entry.plugin.name,
+      newest: entry.newest,
+      versions: entry.plugin.versions.map((version) => version.version),
+      languages: entry.languages,
+      title: entry.plugin.title?.en ?? undefined,
+      icon: entry.plugin.icon !== undefined,
+      fetchedBytes: entry.fetchedBytes,
+    })),
+    diagnostics: {
+      count: diagnostics.size,
+      codes: diagnostics.codes,
+    },
   }
   await writeFile(join(OUT, 'status.json'), `${JSON.stringify(status, null, 2)}\n`, 'utf8')
 
@@ -236,14 +277,17 @@ async function main() {
 
   console.log('')
   console.log(
-    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'newest'.padEnd(14)} ${'languages'.padEnd(12)} title`,
+    `  ${'plugin'.padEnd(28)} ${'versions'.padStart(8)}  ${'newest'.padEnd(14)} ${'languages'.padEnd(12)} ${'fetched'.padEnd(9)} title`,
   )
-  console.log(`  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(12)} -----`)
+  console.log(
+    `  ${'-'.repeat(28)} ${'-'.repeat(8)}  ${'-'.repeat(14)} ${'-'.repeat(12)} ${'-'.repeat(9)} -----`,
+  )
   for (const entry of built) {
     const title = entry.plugin.title?.en ?? '(package name)'
     console.log(
       `  ${entry.plugin.name.padEnd(28)} ${String(entry.plugin.versions.length).padStart(8)}  ` +
-        `${entry.newest.padEnd(14)} ${(entry.languages.join(',') || '-').padEnd(12)} ${title}`,
+        `${entry.newest.padEnd(14)} ${(entry.languages.join(',') || '-').padEnd(12)} ` +
+        `${`${Math.round((entry.fetchedBytes ?? 0) / 1024)}KB`.padEnd(9)} ${title}`,
     )
   }
   console.log('')
