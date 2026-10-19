@@ -1,0 +1,105 @@
+# Build the market index and deploy it to GitHub Pages.
+#
+# The build reads the npm registry and the published tarballs, never a plugin checkout: plugin
+# repositories do not exist on this runner. Everything that can drift is therefore re-read on every
+# run, which is why the schedule exists at all — a plugin can publish a version and this index has
+# to notice without anyone pushing here.
+#
+# Triggers, and why each one exists:
+#   - `push` on main, on the files that define the index, so a curation change goes live immediately;
+#   - `pull_request`, so a curation change is validated *before* it can reach main (build only, no deploy);
+#   - `workflow_dispatch`, for a rebuild after a plugin release;
+#   - `schedule`, every six hours, because a publish changes nothing in this repository.
+#
+# Build and deploy are separate jobs on purpose: the deploy job is the only one that holds a Pages
+# environment and a write scope, so a pull request can run the whole build and validation with a
+# read-only token and never touch the live site.
+#
+# The deploy publishes `public/` as an artifact rather than committing the index back here: the index
+# is a function of plugins.txt + config.json + what npm publishes, and a committed copy would be a
+# second source of truth that can be stale.
+name: Build market index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'config.json'
+      - 'plugins.txt'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/build-market.yml'
+  pull_request:
+    paths:
+      - 'config.json'
+      - 'plugins.txt'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/build-market.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+permissions:
+  contents: read
+
+# One deployment at a time, and never cancel one that is already running: a half-deployed Pages
+# site is worse than a late one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # pnpm has to be installed before setup-node, or `cache: pnpm` cannot find the store.
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          # .node-version is the single source for the baseline, so CI cannot drift from a laptop.
+          node-version-file: .node-version
+          cache: pnpm
+
+      # Frozen install: this job must fail when the lockfile and package.json disagree, rather than
+      # quietly resolve a different validator than the one that was tested.
+      - run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+
+      - name: Build the index
+        run: pnpm run build
+        env:
+          # Optional: raises the GitHub API rate limit for the stars lookup. Without it the lookup
+          # is still attempted and simply degrades to a warning.
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # The same validator DSH runs when it reads an index. A red step here means the index would
+      # have been rejected on the user's machine, so it must never be deployed.
+      - name: Validate the index
+        run: pnpm run check
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    # A pull request gets the build and the validator, and nothing else.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

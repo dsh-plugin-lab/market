@@ -1,0 +1,28 @@
+# Actions version drift comes to us: dependabot opens a bump PR every week and the build runs on it first.
+#
+# The npm ecosystem is included because the only dependency that decides whether an index is valid is
+# `@deepseek-ai/dsh-plugin-market-index` — a validator that moves with DSH itself, so a bump is
+# something to review rather than to avoid.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: deps
+    groups:
+      npm:
+        patterns: ['*']

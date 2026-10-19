@@ -1,0 +1,97 @@
+{
+  "market": {
+    "title": {
+      "en": "DSH Plugin Lab",
+      "zh": "DSH 插件实验室"
+    },
+    "description": {
+      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: retrieval, account, models and development tooling.",
+      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：检索、账户、模型接入与开发工具。"
+    },
+    "indexUrl": "https://dsh-plugin-lab.github.io/market/index.json"
+  },
+  "metadata": {
+    "categories": {
+      "search": {
+        "title": { "en": "Search & retrieval", "zh": "检索" }
+      },
+      "account": {
+        "title": { "en": "Account & usage", "zh": "账户与用量" }
+      },
+      "models": {
+        "title": { "en": "Model access", "zh": "模型接入" }
+      },
+      "devtools": {
+        "title": { "en": "Developer tools", "zh": "开发工具" }
+      }
+    },
+    "labels": {
+      "tool": {
+        "title": { "en": "Model tool", "zh": "模型工具" }
+      },
+      "ui": {
+        "title": { "en": "Interface", "zh": "界面" }
+      },
+      "agent": {
+        "title": { "en": "For agents", "zh": "面向 Agent" }
+      },
+      "models": {
+        "title": { "en": "Models", "zh": "模型" }
+      }
+    },
+    "sortKeys": {
+      "stars": {
+        "title": { "en": "GitHub stars", "zh": "GitHub 星标" },
+        "order": "desc"
+      }
+    }
+  },
+  "build": {
+    "includePrerelease": true,
+    "maxVersionsPerPlugin": 0,
+    "keywordBlocklist": ["dsh", "deepseek-harness", "dsh-plugin"],
+    "maxKeywords": 12,
+    "pruneUnusedMetadata": true
+  },
+  "keywordRules": {
+    "category": {
+      "devtools": ["debugging", "diagnostics"],
+      "models": ["llm", "models", "workbuddy"],
+      "account": ["balance", "usage", "account"],
+      "search": ["search", "zhihu", "retrieval"]
+    },
+    "labels": {
+      "tool": ["tool", "search"],
+      "ui": ["ui", "sidebar"],
+      "agent": ["agent", "debugging"],
+      "models": ["llm", "models"]
+    }
+  },
+  "plugins": {
+    "dsh-zhihu-search": {
+      "category": "search",
+      "labels": ["tool"],
+      "sortKeys": { "stars": { "githubStars": true } }
+    },
+    "dsh-ds-balance": {
+      "category": "account",
+      "labels": ["ui"],
+      "sortKeys": { "stars": { "githubStars": true } }
+    },
+    "dsh-plugin-debugging": {
+      "category": "devtools",
+      "labels": ["agent"],
+      "keywords": ["debugging", "diagnostics", "reload", "troubleshooting"],
+      "sortKeys": { "stars": { "githubStars": true } }
+    },
+    "dsh-workbuddy-bridge": {
+      "category": "models",
+      "labels": ["models"],
+      "sortKeys": { "stars": { "githubStars": "dsh-plugin-lab/dsh-workbuddy-bridge" } },
+      "repository": {
+        "url": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge"
+      },
+      "homepage": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge#readme"
+    }
+  }
+}

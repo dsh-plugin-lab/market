@@ -1,0 +1,25 @@
+{
+  "name": "dsh-plugin-lab-market",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The dsh-plugin-lab plugin market: curated config, and the pipeline that turns npm metadata into a format-1 index.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build-index.mjs",
+    "check": "node scripts/check-index.mjs",
+    "index": "node scripts/build-index.mjs && node scripts/check-index.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-plugin-market-index": "^0.2.1-rc.2",
+    "semver": "^7.8.5"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
+  }
+}
