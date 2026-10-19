@@ -8,9 +8,7 @@ configure.
 
 ## Add it to DSH
 
-1. In **Plugins**, open the **Experimental** section and enable **Custom plugin markets**.
-   > Experimental. Adds a Discover tab to Plugins for browsing and installing bundles from plugin
-   > market indexes you add.
+1. In **Plugins**, open **Custom plugin markets**, and turn it on.
 2. Open **Plugins → Discover**, choose **Add index source**, and paste this URL:
 
    ```text
