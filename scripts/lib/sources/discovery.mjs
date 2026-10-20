@@ -20,22 +20,29 @@
  *     it had the order its author typed, which nobody could reconstruct later. Alphabetical is
  *     reproducible, and it is what a reader of the Discover page sees.
  */
-import { githubHeaders, json } from '../shared/http.mjs'
+import { githubHeaders, json, request } from '../shared/http.mjs'
 
 const API = 'https://api.github.com'
 
-/** A repository's manifest, or `undefined` when it has none — a repository without one is not a plugin. */
+/**
+ * A repository's manifest, or `undefined` when it has none.
+ *
+ * Goes through the same `request()` helper as every other source, so a transient failure is retried
+ * like everywhere else — one unretried fetch in a build of retried ones is a difference nobody
+ * notices until a proxy hiccups. A 404 is the one answer that is not a failure: a repository without
+ * a manifest is not a plugin, which is an ordinary outcome here.
+ */
 async function manifestOf(fullName, branch) {
-  const response = await fetch(
-    `https://raw.githubusercontent.com/${fullName}/${branch}/package.json`,
-    {
-      headers: githubHeaders({ accept: 'application/vnd.github.raw' }),
-      signal: AbortSignal.timeout(20_000),
-    },
-  )
-  if (response.status === 404) return undefined
-  if (!response.ok) throw new Error(`reading ${fullName}/package.json: HTTP ${response.status}`)
-  return JSON.parse(await response.text())
+  try {
+    const response = await request(
+      `https://raw.githubusercontent.com/${fullName}/${branch}/package.json`,
+      { accept: 'application/vnd.github.raw', headers: githubHeaders() },
+    )
+    return JSON.parse(await response.text())
+  } catch (error) {
+    if (/HTTP 404/u.test(error.message)) return undefined
+    throw error
+  }
 }
 
 /** Every public repository in an organization, following pagination. */
