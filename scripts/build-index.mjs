@@ -268,6 +268,12 @@ async function main() {
           ? {}
           : { largestFile: entry.largestFile.path, largestFileBytes: entry.largestFile.bytes }),
       },
+      // Versions the registry marks deprecated. They are not offered, and the reason they are absent
+      // belongs here rather than in a diagnostic: this is an intended, permanent exclusion, and a
+      // warning that fires on every build is a warning nobody reads.
+      ...(entry.excluded?.deprecated?.length > 0
+        ? { excluded: { deprecated: entry.excluded.deprecated } }
+        : {}),
     })),
     diagnostics: {
       count: diagnostics.size,

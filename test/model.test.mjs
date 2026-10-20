@@ -50,7 +50,7 @@ const collect = () => {
 
 test('versions are listed newest first and capped by the policy', () => {
   const { reported, report } = collect()
-  const selected = selectVersions(
+  const { selected } = selectVersions(
     'p',
     packumentOf(['1.0.0', '1.1.0', '1.2.0', '1.3.0']),
     SETTINGS,
@@ -62,7 +62,7 @@ test('versions are listed newest first and capped by the policy', () => {
 
 test('prereleases are excluded by a stable-only policy, and are not a defect', () => {
   const { reported, report } = collect()
-  const selected = selectVersions(
+  const { selected } = selectVersions(
     'p',
     packumentOf(['1.0.0', '1.1.0-rc.1']),
     { ...SETTINGS, includePrerelease: false },
@@ -88,9 +88,60 @@ test('a stable "latest" that the listed set dropped is fatal', () => {
   )
 })
 
+test('a deprecated version is not listed, and the exclusion is reported', () => {
+  const { reported, report } = collect()
+  const packument = packumentOf(['1.0.0', '1.1.0', '1.2.0'])
+  packument.versions['1.1.0'].deprecated = 'Broken release — upgrade to the latest version.'
+  const { selected, deprecated } = selectVersions('p', packument, SETTINGS, report)
+  assert.deepEqual(selected, ['1.2.0', '1.0.0'])
+  assert.deepEqual(deprecated, ['1.1.0'])
+})
+
+test('deprecation is dropped before the cap, so the cap counts installable versions', () => {
+  const { report } = collect()
+  const packument = packumentOf(['1.0.0', '1.1.0', '1.2.0', '1.3.0'])
+  // A middle version, not `latest`: deprecating `latest` is a different failure (see below).
+  packument.versions['1.2.0'].deprecated = 'Broken.'
+  const { selected } = selectVersions(
+    'p',
+    packument,
+    { ...SETTINGS, maxVersionsPerPlugin: 2 },
+    report,
+  )
+  assert.deepEqual(selected, ['1.3.0', '1.1.0'], 'the newest two that may be installed')
+})
+
+test('a deprecated version still reaches the caller so it can be reported', () => {
+  const { report } = collect()
+  const packument = packumentOf(['1.0.0', '1.1.0'])
+  packument.versions['1.0.0'].deprecated = 'Broken.'
+  const entry = buildEntry({
+    name: 'p',
+    config: {},
+    explicit: {},
+    settings: SETTINGS,
+    packument,
+    tarball: { entries: new Map() },
+    starsFor: () => undefined,
+    report: () => {},
+  })
+  assert.deepEqual(
+    entry.plugin.versions.map((version) => version.version),
+    ['1.1.0'],
+  )
+})
+
+test('a deprecated "latest" is fatal: the registry would be contradicting itself', () => {
+  const { report } = collect()
+  const packument = packumentOf(['1.0.0', '1.1.0'])
+  packument['dist-tags'].latest = '1.0.0'
+  packument.versions['1.0.0'].deprecated = 'Broken.'
+  assert.throws(() => selectVersions('p', packument, SETTINGS, report), /deprecated/u)
+})
+
 test('a package with only prereleases falls back to one of them', () => {
   const { reported, report } = collect()
-  const selected = selectVersions(
+  const { selected } = selectVersions(
     'p',
     packumentOf(['1.0.0-rc.1']),
     { ...SETTINGS, includePrerelease: false },

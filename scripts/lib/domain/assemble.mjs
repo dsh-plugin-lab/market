@@ -58,6 +58,7 @@ export function buildEntry({
     newest: facts.newest,
     languages: facts.languages,
     assets: facts.asset === undefined ? [] : [facts.asset],
+    excluded: facts.excluded,
     fetchedBytes: facts.fetchedBytes,
     unpackedBytes: facts.unpackedBytes,
     fileCount: facts.fileCount,

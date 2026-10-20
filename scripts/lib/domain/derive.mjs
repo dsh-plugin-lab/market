@@ -24,25 +24,41 @@ const fail = (message) => {
 /**
  * Which published versions the index lists, newest first.
  *
- * `includePrerelease` and `maxVersionsPerPlugin` are policy, so they are settings rather than
- * constants here: a stable-only market and an all-versions market differ in this function alone.
+ * Three policies meet here, and they are not the same kind of decision:
+ *
+ *   - **`includePrerelease` / `maxVersionsPerPlugin`** are market policy from `config.json`: how much
+ *     history to advertise. Changing them changes what the market offers, nothing about the package.
+ *   - **A deprecation is not policy, it is the registry saying "do not use this"** — and it is the one
+ *     exclusion with a moral weight behind it: npm carries a reason ("the client plugin fails to load
+ *     and DSH cannot be opened"), and listing such a version invites exactly that failure. Format 1 has
+ *     no member to mark it with, so the honest move is not to list it at all.
+ *   - The exclusion is **recorded, not silent**: the caller reports it, because a version quietly
+ *     disappearing from a list is the same failure mode this repository keeps guarding against.
+ *
+ * Deprecated versions are dropped **before** the cap is applied, so `maxVersionsPerPlugin` counts
+ * versions a reader may actually install.
  */
 export function selectVersions(name, packument, settings, report) {
   const published = Object.keys(packument.versions ?? {}).sort(semver.rcompare)
   if (published.length === 0) fail(`${name}: the registry lists no version`)
 
+  const deprecated = published.filter((version) => packument.versions[version]?.deprecated)
+  const usable = published.filter(
+    (version) => packument.versions[version]?.deprecated === undefined,
+  )
+
   const selected = []
-  for (const version of published) {
+  for (const version of usable) {
     if (!settings.includePrerelease && semver.prerelease(version) !== null) continue
     if (settings.maxVersionsPerPlugin > 0 && selected.length >= settings.maxVersionsPerPlugin) break
     selected.push(version)
   }
   if (selected.length === 0) {
     // A package that has only ever published prereleases is not a reason to take the market down.
-    selected.push(published[0])
+    selected.push(usable[0] ?? published[0])
     report(
       'prerelease-only',
-      `${name}: no stable version is published, so ${published[0]} (a prerelease) is listed instead`,
+      `${name}: no stable version is published, so ${selected[0]} (a prerelease) is listed instead`,
       { plugin: name },
     )
   }
@@ -51,13 +67,15 @@ export function selectVersions(name, packument, settings, report) {
     const message = `${name}: the "latest" tag (${latestTagged}) is not among the listed versions`
     // A stable `latest` that is missing means this build dropped the newest release — a defect.
     // A prerelease `latest` is simply excluded by a stable-only policy, which is not a defect.
-    if (semver.prerelease(latestTagged) === null) fail(message)
-    else
+    // A deprecated `latest` is the registry contradicting itself, and it is worth being loud about.
+    if (semver.prerelease(latestTagged) !== null)
       report('latest-tag-prerelease', `${message} — it is a prerelease, and it is not listed`, {
         plugin: name,
       })
+    else if (deprecated.includes(latestTagged)) fail(`${message} — and it is deprecated`)
+    else fail(message)
   }
-  return selected
+  return { selected, deprecated }
 }
 
 /** One version record, or `undefined` when it cannot be described honestly. */
@@ -212,7 +230,7 @@ function reportRedundantOverrides(
 export function deriveFacts({ name, explicit, settings, packument, tarball, report }) {
   const entries = tarball.entries
   const fetchFailed = tarball.unreadable !== undefined
-  const selected = selectVersions(name, packument, settings, report)
+  const { selected, deprecated } = selectVersions(name, packument, settings, report)
   const sourceConfig = explicit.source ?? { type: 'npm' }
   const newest = selected[0]
   const newestManifest = packument.versions[newest]
@@ -286,6 +304,10 @@ export function deriveFacts({ name, explicit, settings, packument, tarball, repo
     repository,
     versions,
     languages: locale.languages,
+    // Not a degradation: the registry declared these unusable, so the market declines to offer them.
+    // Recorded rather than reported, because a permanent, intended condition must not become alert
+    // noise — but also not silently dropped, because a version vanishing from a list needs a reason.
+    excluded: { deprecated },
     keywords: keywordsOf(settings, packument.keywords, explicit.keywords, [name]),
     fetchedBytes: tarball.bytes ?? 0,
     // What the package costs a consumer, and what makes it cost that. A number without its cause is
