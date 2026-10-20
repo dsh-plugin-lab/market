@@ -28,7 +28,7 @@ plugin only reaches the index after that plugin publishes.
 
 | Input                                  | Owns                                                                                                            |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `plugins.txt`                          | which packages are listed, and in what order                                                                    |
+| the organization repositories          | which packages are listed (discovered), and in what order (alphabetical by package name)                        |
 | `config.json`                          | everything no source can derive: market title, categories, labels, sort keys, per-plugin curation and overrides |
 | npm (+ the GitHub API for star counts) | every fact about a published package                                                                            |
 
@@ -39,14 +39,14 @@ values, and no document keeps a second copy of the current category list.
 
 Four kinds, and the boundary between them decides most of the design.
 
-| Data                        | Written by           | Lives                    | May a reader depend on it          |
-| --------------------------- | -------------------- | ------------------------ | ---------------------------------- |
-| `plugins.txt`               | a human              | commits forever          | no — it is an input, not an output |
-| `config.json`               | a human              | commits forever          | no                                 |
-| `index.json` + `icons/`     | the build, every run | one deployment at a time | **yes** — this is the contract     |
-| `status.json`               | the build, every run | one deployment at a time | no — it describes the build        |
-| `build/diagnostics.json`    | the build, every run | one CI run (artifact)    | no — it describes build quality    |
-| `diagnostics-baseline.json` | a human              | commits forever          | no                                 |
+| Data                          | Written by            | Lives                       | May a reader depend on it          |
+| ----------------------------- | --------------------- | --------------------------- | ---------------------------------- |
+| the organization repositories | GitHub, at build time | while the repository exists | no — it is an input, not an output |
+| `config.json`                 | a human               | commits forever             | no                                 |
+| `index.json` + `icons/`       | the build, every run  | one deployment at a time    | **yes** — this is the contract     |
+| `status.json`                 | the build, every run  | one deployment at a time    | no — it describes the build        |
+| `build/diagnostics.json`      | the build, every run  | one CI run (artifact)       | no — it describes build quality    |
+| `diagnostics-baseline.json`   | a human               | commits forever             | no                                 |
 
 Three rules follow, and they are the whole of the data policy:
 

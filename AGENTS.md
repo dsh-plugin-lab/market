@@ -1,6 +1,6 @@
 # dsh-market — 维护索引
 
-本仓的产物不是文件，是一次构建：`plugins.txt` + `config.json` + npm 上已发布的事实 → `public/index.json`。
+本仓的产物不是文件，是一次构建：本组织里那些插件仓（自动发现）+ `config.json` + npm 上已发布的事实 → `public/index.json`。
 所以这里只有「改输入」和「重跑」，没有「改产物」。
 
 - 职责：在本仓干活要遵守的规则、命令、运营坑。
@@ -34,9 +34,11 @@
   任何文档也不许再记一份「当前分类表」。
 - **不要手改 `public/`。** 它被 `.gitignore` 与 `.prettierignore` 排除，`build` 每次先整个删掉再写。
   手改在本地活不过下一次构建，在线上根本到不了。
-- **加插件只动 `plugins.txt` 和 `config.json` 两个文件。** `plugins.txt` 加一行（顺序即展示顺序），
-  要策展就在 `config.json` 的 `plugins.<name>` 里写。不要在别处登记第二份插件清单。
-- **名录里有、npm 上没有 = 构建失败。** 先发版再进名录，这一步不可跳过。
+- **名录不用维护，它是发现的。** 插件仓以「仓名 `dsh-` 开头 + 清单里有 `dsh` 字段」自报身份，
+  构建时枚举本组织的公开仓取这批名字。**没有名单文件**，因为它会漂：新建仓要记着加、删了包还留着、
+  漏加的没人发现。顺序**按包名字母序**，可复现。
+- **要策展就动 `config.json` 的 `plugins.<name>`。** 没写的那一项按 `keywordRules` 兜底，不会失败。
+- **发现得到、npm 上没有 = 构建失败。** 先发版再让仓出现，这一步不可跳过。
 - **声明面成对改。** 写 `category` / `labels` / 排序键 id，必须同时在根 `metadata` 声明同名项，否则 build 直接失败。
   反方向：没人引用的声明会被 prune 并留 WARN —— 看到就该删声明或补引用。
 - **语言策略。** 门面双语两件，首行互链，格式照组织主页（`dsh-plugin-lab/.github` 的 `profile/README.md`）；
@@ -82,12 +84,12 @@
 
 一个文件只属于下面两类之一。**手写的只有这四样**，其余都是产物或工程配置。
 
-| 手写                                                     | 改它会发生什么                                 | 谁判它                                                            |
-| -------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------- |
-| [`plugins.txt`](plugins.txt)                             | 名录与展示顺序变化                             | 不是 npm 包名 → build 失败；包在 registry 上不存在 → build 失败   |
-| [`config.json`](config.json)                             | 标题、分类、标签、排序键、覆盖、build 开关变化 | 引用未声明的 id → build 失败；覆盖与源重复 → `override-redundant` |
-| [`diagnostics-baseline.json`](diagnostics-baseline.json) | 把某个降级「接受」为已知                       | 出现基线外的 code → `check` 红                                    |
-| 文档（`README*`、`AGENTS.md`、`docs/`、`scripts/*.md`）  | 只影响人，不影响索引                           | 链接检查、双语结构对齐                                            |
+| 手写                                                     | 改它会发生什么                                 | 谁判它                                                                        |
+| -------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| 插件仓（本组织）                                         | 名录与展示顺序变化（增删仓、改包名）           | 清单里的 name 不是 npm 包名 → build 失败；包在 registry 上不存在 → build 失败 |
+| [`config.json`](config.json)                             | 标题、分类、标签、排序键、覆盖、build 开关变化 | 引用未声明的 id → build 失败；覆盖与源重复 → `override-redundant`             |
+| [`diagnostics-baseline.json`](diagnostics-baseline.json) | 把某个降级「接受」为已知                       | 出现基线外的 code → `check` 红                                                |
+| 文档（`README*`、`AGENTS.md`、`docs/`、`scripts/*.md`）  | 只影响人，不影响索引                           | 链接检查、双语结构对齐                                                        |
 
 生成物：`public/`（部署产物）、`build/`（诊断与核对中间物），两者都 gitignored、都不许手改 ——
 build 每次先整个删掉再写。工程配置（`package.json`、`pnpm-lock.yaml`、workflow、`.pre-commit-config.yaml`）
@@ -104,7 +106,7 @@ build 每次先整个删掉再写。工程配置（`package.json`、`pnpm-lock.y
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                            | 设计决策：为什么读 npm 不读插件仓、降级为什么不在产物里、为什么三个 job |
 | [docs/market-format.md](docs/market-format.md)                          | 产物契约：format 1 每个字段的来源与约束，含完整示例                     |
 | [config.json](config.json)                                              | 策展入口：标题、声明、每插件 curation、build 开关                       |
-| [plugins.txt](plugins.txt)                                              | 名录与默认顺序                                                          |
+| [scripts/lib/sources/discovery.mjs](scripts/lib/sources/discovery.mjs)  | 名录从哪来：枚举组织仓、按 `dsh` 字段认领、字母序                       |
 | [diagnostics-baseline.json](diagnostics-baseline.json)                  | 已接受的降级 code；新增一条降级要在这里显式登记                         |
 | [scripts/README.md](scripts/README.md) · [AGENTS.md](scripts/AGENTS.md) | 模块定位索引（数据怎么流、改哪波及谁）与改码规则                        |
 | [test/](test/)                                                          | 脚本的单元测试（无网络、无时钟）                                        |

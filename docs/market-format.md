@@ -10,7 +10,7 @@ repository repeats it.
 (the interface label follows the reader’s language; the path is the same).
 
 **It is generated output.** Nobody edits it by hand: `scripts/build-index.mjs` deletes `public/` and
-writes it again from `plugins.txt`, `config.json` and npm, and `scripts/check-index.mjs` runs the
+writes it again from the plugin repositories, `config.json` and npm, and `scripts/check-index.mjs` runs the
 official `parseMarketIndex` from `@deepseek-ai/dsh-plugin-market-index` over the result. To change a
 value, change an input — [ARCHITECTURE.md](ARCHITECTURE.md) says which input owns which field.
 
@@ -25,7 +25,7 @@ The format is defined by the plugin market index format Agent Note; the validato
 | `title`       | `LocalizedText` | yes      | `config.json` `market.title`       | must contain `en`                      |
 | `description` | `LocalizedText` | no       | `config.json` `market.description` | must contain `en`                      |
 | `metadata`    | object          | no       | `config.json` `metadata`           | absent groups read as empty            |
-| `plugins`     | array           | yes      | `plugins.txt`                      | array; this build never emits it empty |
+| `plugins`     | array           | yes      | the organization                   | array; this build never emits it empty |
 
 `metadata` being optional is why a bare index can still parse; it is not optional for the Discover
 page, which needs the declarations for every id the plugins reference.
@@ -61,7 +61,7 @@ Discover page never shows an empty filter.
 
 | Member        | Type            | Req. | Source                           | Constraint                                  |
 | ------------- | --------------- | ---- | -------------------------------- | ------------------------------------------- |
-| `name`        | string          | yes  | `plugins.txt`                    | valid npm package name, ≤ 214 chars, unique |
+| `name`        | string          | yes  | the repository manifest          | valid npm package name, ≤ 214 chars, unique |
 | `title`       | `LocalizedText` | no   | tarball `locale/`, or config     | must contain `en`                           |
 | `description` | `LocalizedText` | no   | tarball `locale/`, else registry | must contain `en`                           |
 | `icon`        | string          | no   | tarball `icon` file, or config   | `data:` URL, https, or index origin         |
@@ -216,7 +216,7 @@ real index carries every plugin, every published version, and every group a plug
   },
   "plugins": [
     {
-      // The npm package name, from plugins.txt: it is what gets installed.
+      // The npm package name, from the repository manifest: it is what gets installed.
       "name": "dsh-zhihu-search",
       // locale/en.json and locale/zh.json → meta.title.
       "title": { "en": "Zhihu Search", "zh": "知乎检索" },

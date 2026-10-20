@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Build `public/index.json` — a plugin market index in format 1 — from `plugins.txt` and `config.json`.
+ * Build `public/index.json` — a plugin market index in format 1 — from the organization and
+ * `config.json`.
  *
  * This runs on a GitHub runner, where no plugin repository exists on disk, so nothing here reads a
  * plugin's checkout. Every machine fact comes from two published sources: the npm packument, and the
@@ -8,9 +9,16 @@
  * declares). Curation — market title, categories, labels, sort keys, each plugin's category and
  * labels — is the part no source can derive, so it lives in `config.json` and is merged in here.
  *
+ * **Which plugins are listed is not curation.** It used to be a hand-written `plugins.txt`; it is now
+ * read from the organization, where a plugin repository declares itself (a `dsh-` name and a `dsh`
+ * field). A roster kept by hand has to be updated when a repository is created, can name a package
+ * that no longer exists, and can miss a repository nobody remembered to add — none of which reports
+ * itself. The list is **alphabetical by package name**, because a hand-typed order is a fact nobody
+ * can reconstruct later.
+ *
  * The file is **orchestration only**, in five stages:
  *
- *   1. inputs   — `config.json`, `plugins.txt`
+ *   1. inputs   — `config.json`, the organization's plugin repositories
  *   2. facts    — packuments, tarballs, star counts (all network, all in `lib/sources/`)
  *   3. model    — facts + curation → the document (pure, in `lib/domain/`)
  *   4. contract — the document carries only members format 1 defines
@@ -30,13 +38,19 @@ import { findUndefinedMembers } from './lib/domain/contract.mjs'
 import { ROOT, info, ok, reportFatal } from './lib/shared/cli.mjs'
 import { digestOf } from './lib/shared/digest.mjs'
 import { repositoryOf } from './lib/shared/text.mjs'
+import { discoverPlugins } from './lib/sources/discovery.mjs'
 import { latestDsh, packument, tarballEntries } from './lib/sources/npm.mjs'
 import { starReader } from './lib/sources/github.mjs'
 
 const OUT = join(ROOT, 'public')
 const CONCURRENCY = 4
 
-/** The npm package-name grammar, so a typo in `plugins.txt` fails here and not in DSH. */
+/**
+ * The npm package-name grammar, applied to the name a repository declares.
+ *
+ * Discovery reads it from a manifest, which is a document someone types by hand — so it is checked
+ * here rather than trusted. A bad name fails the build; it does not reach DSH.
+ */
 const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/u
 
 const diagnostics = new Diagnostics()
@@ -50,24 +64,44 @@ async function readJson(file) {
   return JSON.parse(await readFile(file, 'utf8'))
 }
 
-/** `plugins.txt`: one npm package name per line, `#` starts a comment, order is the default order. */
-async function readPlugins(file) {
-  const text = await readFile(file, 'utf8')
-  const names = []
-  for (const [index, rawLine] of text
-    .replace(/^\uFEFF/u, '')
-    .split(/\r?\n/u)
-    .entries()) {
-    const line = rawLine.replace(/\s+#.*$/u, '').trim()
-    if (line === '' || line.startsWith('#')) continue
-    if (!PACKAGE_NAME.test(line))
+/**
+ * The organization whose repositories are the market's roster.
+ *
+ * Derived from the published index URL rather than written down again: `config.market.indexUrl` is
+ * already the one place that says where this market lives, and a second copy of the organization name
+ * is a second thing to keep in step. Same derivation as `check-org-drift.mjs`.
+ */
+function organizationOf(config) {
+  return new URL(config.market.indexUrl).hostname.split('.')[0]
+}
+
+/**
+ * The listed plugins, as npm package names, in display order.
+ *
+ * The roster comes from the repositories; `config.json` no longer decides who is listed, only how.
+ * A name that discovery produces but the manifest grammar rejects stops the build: it would otherwise
+ * be looked up on npm, fail, and be reported as "no published version" — the wrong diagnosis.
+ */
+async function listedPlugins(config) {
+  const org = organizationOf(config)
+  const found = await discoverPlugins(org)
+  if (found.length === 0)
+    throw new Error(
+      `no plugin repository found in ${org} — discovery is broken, not the plugins (no dsh-* repository declares a dsh field)`,
+    )
+  for (const plugin of found) {
+    if (!PACKAGE_NAME.test(plugin.name))
       throw new Error(
-        `plugins.txt:${index + 1}: ${JSON.stringify(line)} is not an npm package name`,
+        `${plugin.repository} declares ${JSON.stringify(plugin.name)}, which is not an npm package name`,
       )
-    if (names.includes(line)) throw new Error(`plugins.txt:${index + 1}: ${line} is listed twice`)
-    names.push(line)
   }
-  if (names.length === 0) throw new Error('plugins.txt lists no plugin')
+  const names = found.map((plugin) => plugin.name)
+  const duplicate = names.find((name, index) => names.indexOf(name) !== index)
+  if (duplicate !== undefined)
+    throw new Error(
+      `${duplicate} is declared by more than one repository — the roster must name each package once`,
+    )
+  info(`${names.length} plugin repositories discovered in ${org}`)
   return names
 }
 
@@ -148,8 +182,7 @@ async function main() {
   const startedAt = new Date()
   const config = await readJson(join(ROOT, 'config.json'))
   const settings = normaliseSettings(config)
-  const names = await readPlugins(join(ROOT, 'plugins.txt'))
-  info(`${names.length} plugin(s) listed in plugins.txt`)
+  const names = await listedPlugins(config)
 
   // The output is cleared before anything writes into it; a stale icon from a removed plugin would
   // otherwise survive every later build.
@@ -157,8 +190,8 @@ async function main() {
   await mkdir(join(OUT, 'icons'), { recursive: true })
 
   // Facts are fetched concurrently, the model runs after every fact is in hand. The order of `entries`
-  // is the order of `plugins.txt`, never the order responses arrived in — the index is a document, not
-  // a transcript of the network.
+  // is the order of the discovered roster (alphabetical by package name), never the order responses
+  // arrived in — the index is a document, not a transcript of the network.
   const stars = starReader()
   const facts = await mapLimit(names, CONCURRENCY, async (name) => ({
     name,

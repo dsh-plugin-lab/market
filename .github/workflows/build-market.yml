@@ -21,7 +21,7 @@
 # deployment history no longer does.
 #
 # The deploy publishes `public/` as an artifact rather than committing the index back here: the index
-# is a function of plugins.txt + config.json + what npm publishes, and a committed copy would be a
+# is a function of the organization + config.json + what npm publishes, and a committed copy would be a
 # second source of truth that can be stale.
 name: Build market index
 
@@ -30,7 +30,6 @@ on:
     branches: [main]
     paths:
       - 'config.json'
-      - 'plugins.txt'
       - 'scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -38,7 +37,6 @@ on:
   pull_request:
     paths:
       - 'config.json'
-      - 'plugins.txt'
       - 'scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -92,8 +90,9 @@ jobs:
       - name: Build the index
         run: pnpm run build
         env:
-          # Optional: raises the GitHub API rate limit for the stars lookup. Without it the lookup
-          # is still attempted and simply degrades to a warning.
+          # Not optional any more. The roster is discovered from the organization, so an exhausted
+          # anonymous quota (60 requests/hour) fails the build outright rather than degrading: without
+          # the repository list there is no index to build. The token raises the ceiling to 5,000.
           GITHUB_TOKEN: ${{ github.token }}
 
       # The same validator DSH runs when it reads an index. A red step here means the index would
@@ -160,7 +159,7 @@ jobs:
             echo ""
             jq -r '.findings[] | "- **\(.code)**: \(.message)"' build/org-drift.json
             echo ""
-            echo "Each line is either a merge that has not been released, or a plugin repository that \`plugins.txt\` does not list. Fixing it is a release or a curation change; this issue closes itself on the next run that finds no drift."
+            echo "Each line is either a merge that has not been released, or a plugin repository that discovery does not list. Fixing it is a release or a curation change; this issue closes itself on the next run that finds no drift."
           } > /tmp/body.md
           if [ -n "$number" ]; then
             gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file /tmp/body.md

@@ -13,7 +13,7 @@
  * Two findings, both about drift rather than about failure:
  *
  *   - unpublished: the repository is ahead of npm, i.e. merged but not released;
- *   - missing:     the repository is a DSH plugin (it has a `dsh` field) but is not in `plugins.txt`.
+ *   - missing:     the repository is a DSH plugin (it has a `dsh` field) but discovery did not list it.
  *
  * It only reports. Deciding to release, or to list a plugin, is a human act — an automatic fix here
  * would make the market claim things nobody decided.
@@ -25,6 +25,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import semver from 'semver'
 import { organizationRepositories, repositoryManifest } from './lib/sources/github.mjs'
+import { discoverPlugins } from './lib/sources/discovery.mjs'
 import { json } from './lib/shared/http.mjs'
 import { ROOT, flag, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
 
@@ -43,13 +44,12 @@ async function main() {
   const output = flag('write', undefined)
   const strict = process.argv.includes('--strict')
 
-  const listed = (await readFile(join(ROOT, 'plugins.txt'), 'utf8'))
-    .replace(/^\uFEFF/u, '')
-    .split(/\r?\n/u)
-    .map((line) => line.replace(/\s+#.*$/u, '').trim())
-    .filter((line) => line !== '' && !line.startsWith('#'))
+  // The roster is what the build will actually list, so it is discovered exactly as the build
+  // discovers it. Reading a separate hand-kept list here would compare the organization against a
+  // document that is no longer an input — and agree with itself while the build did something else.
+  const listed = (await discoverPlugins(org)).map((plugin) => plugin.name)
 
-  info(`organization: ${org}, ${listed.length} plugin(s) listed`)
+  info(`organization: ${org}, ${listed.length} plugin(s) discovered`)
 
   const repositories = await organizationRepositories(org)
   info(`${repositories.length} public repository(ies)`)
@@ -69,7 +69,7 @@ async function main() {
       findings.push({
         code: 'missing',
         name: plugin.name,
-        message: `${plugin.name} is a DSH plugin in ${plugin.repository} but is not in plugins.txt`,
+        message: `${plugin.name} is a DSH plugin in ${plugin.repository} but discovery did not list it`,
       })
       continue
     }
@@ -81,7 +81,7 @@ async function main() {
       findings.push({
         code: 'unpublished',
         name: plugin.name,
-        message: `${plugin.name} is in plugins.txt but npm publishes no "latest" version`,
+        message: `${plugin.name} is discovered but npm publishes no "latest" version`,
       })
       continue
     }
