@@ -32,8 +32,8 @@
       "zero-config": {
         "title": { "en": "Zero config", "zh": "零配置" }
       },
-      "needs-key": {
-        "title": { "en": "Needs a key", "zh": "需自备密钥" }
+      "byok": {
+        "title": { "en": "BYOK", "zh": "自备密钥" }
       }
     },
     "sortKeys": {
@@ -60,7 +60,7 @@
   "plugins": {
     "dsh-zhihu-search": {
       "category": "tools",
-      "labels": ["online", "needs-key"],
+      "labels": ["online", "byok"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-ds-balance": {
