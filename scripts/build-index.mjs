@@ -35,7 +35,8 @@ import { Diagnostics } from './lib/domain/diagnosis.mjs'
 import { buildEntry } from './lib/domain/assemble.mjs'
 import { pruneMetadata, starTargets } from './lib/domain/curation.mjs'
 import { findUndefinedMembers } from './lib/domain/contract.mjs'
-import { ROOT, info, ok, reportFatal } from './lib/shared/cli.mjs'
+import { compareRoster } from './lib/domain/roster.mjs'
+import { ROOT, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
 import { digestOf } from './lib/shared/digest.mjs'
 import { repositoryOf } from './lib/shared/text.mjs'
 import { discoverPlugins } from './lib/sources/discovery.mjs'
@@ -101,6 +102,31 @@ async function listedPlugins(config) {
     throw new Error(
       `${duplicate} is declared by more than one repository — the roster must name each package once`,
     )
+
+  // The roster is discovered, so "discovery returned fewer plugins than exist" is the failure that
+  // hides: a partial listing still produces a well-formed index, exits 0, and quietly delists
+  // whatever it missed. Curation is the only record of what used to be here — a name somebody
+  // decided was worth curating — so it is the anchor. Losing one is a diagnostic rather than a fatal
+  // error because the index *can* be built without it; the ratchet is what makes it loud.
+  //
+  // The benign direction is said out loud too: a plugin nobody has curated still lists, with its
+  // category and labels falling back to `keywordRules`, and a silent fallback looks exactly like a
+  // curation somebody forgot to write.
+  const { orphaned, uncurated } = compareRoster({
+    curated: Object.keys(config.plugins ?? {}),
+    discovered: names,
+  })
+  for (const name of orphaned) {
+    report('curation-orphaned', `${name}: curated in config.json, but discovery did not find it`, {
+      plugin: name,
+    })
+  }
+  for (const name of uncurated) {
+    warn(
+      `${name}: discovered but not curated in config.json — category and labels fall back to keywordRules`,
+    )
+  }
+
   info(`${names.length} plugin repositories discovered in ${org}`)
   return names
 }

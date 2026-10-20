@@ -48,16 +48,23 @@ async function manifestOf(fullName, branch) {
 /** Every public repository in an organization, following pagination. */
 async function repositoriesOf(org) {
   const repositories = []
+  // `per_page=100` is the API maximum, and ten pages is a ceiling rather than a real limit: this
+  // organization has single-digit repositories. A short page ends the walk.
   for (let page = 1; page <= 10; page += 1) {
     const batch = await json(`${API}/orgs/${org}/repos?per_page=100&page=${page}&type=public`, {
       headers: githubHeaders(),
     }).catch((error) => {
-      // The roster is no longer an optional input — without it there is no index — so an exhausted
-      // anonymous quota has to read as what it is. "HTTP 403" alone sends people looking for a
-      // permissions problem.
-      if (/403|rate limit/iu.test(error.message)) {
+      // These used to read as a bare status code, which sends people looking for the wrong problem.
+      // They are different problems: no token (or an exhausted anonymous quota) is fixed by
+      // supplying one, a rejected token is fixed by replacing it.
+      if (/rate limit|403/iu.test(error.message)) {
         throw new Error(
-          `${error.message} — listing ${org} needs GITHUB_TOKEN set (anonymous is 60 requests/hour)`,
+          `${error.message} — listing ${org} hit the anonymous quota (60 requests/hour); set GITHUB_TOKEN`,
+        )
+      }
+      if (/401|Unauthorized/iu.test(error.message)) {
+        throw new Error(
+          `${error.message} — GITHUB_TOKEN was rejected: expired, revoked, or without access to ${org}`,
         )
       }
       throw error

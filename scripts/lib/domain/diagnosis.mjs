@@ -43,6 +43,8 @@ export const CODES = {
   'sortkey-unresolved': 'A declared sort key could not be resolved to a number.',
   'metadata-unused': 'A declared category, label or sort key is referenced by no plugin.',
   'override-redundant': 'config.json overrides a field the registry already publishes identically.',
+  'curation-orphaned':
+    'config.json curates a plugin that discovery did not find — either the repository was removed or renamed, or discovery failed for it.',
 }
 
 /**
