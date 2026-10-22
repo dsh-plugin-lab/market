@@ -74,18 +74,18 @@ npm / GitHub / Pages          外部世界
 
 ## 变更影响路由
 
-| 你改这里                       | 会波及                                                                                                    |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `domain/derive.mjs` 的推导规则 | `test/model.test.mjs`；产物里版本/时间戳/图标的样子                                                       |
-| `domain/curation.mjs`          | 分类与标签的判定；`config.json` 里那套 keyword 规则的含义                                                 |
-| `domain/assemble.mjs`          | 条目的字段集合 → [../docs/market-format.md](../docs/market-format.md) 与 `check` 的契约遍历               |
-| `domain/document.mjs`          | 索引顶层成员；`findUndefinedMembers` 会立刻拒绝多余的那个                                                 |
-| `domain/status.mjs`            | `status.json` 的形状；`verify-deployed.mjs` 判据与部署去重（`build` 段以外都不许随时间变）                |
-| `domain/compat.mjs`            | `check` 的兼容性表与「装得上吗」结论                                                                      |
-| `domain/contract.mjs`          | **build 与 check 会同时变**，这是故意的：写什么与查什么是同一张表                                         |
-| `domain/diagnosis.mjs` 的码表  | `diagnostics-baseline.json`、[../AGENTS.md](../AGENTS.md) 的降级说明、严重性测试                          |
-| `sources/*`                    | 只影响取数；domain 不需要动                                                                               |
-| `shared/http.mjs`              | 四个入口一起变——重试与超时是全局策略                                                                      |
-| `shared/time.mjs`              | `status.json` 的 `localTimes`；时区列表在 `config.json` 的 `build.localTimeZones`                         |
-| 任一入口的退出码语义           | `.github/workflows/build-market.yml` 里对它的调用与失败处理                                               |
-| `public/status.json` 的字段    | `verify-deployed.mjs` 的判据（`content.hash`）、部署去重（`build` 段以外的内容）、README 对 status 的描述 |
+| 你改这里                       | 会波及                                                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `domain/derive.mjs` 的推导规则 | `test/model.test.mjs`；产物里版本/时间戳/图标的样子                                                            |
+| `domain/curation.mjs`          | 分类与标签的判定；`config.json` 里那套 keyword 规则的含义                                                      |
+| `domain/assemble.mjs`          | 条目的字段集合 → [../docs/market-format.md](../docs/market-format.md) 与 `check` 的契约遍历                    |
+| `domain/document.mjs`          | 索引顶层成员；`findUndefinedMembers` 会立刻拒绝多余的那个                                                      |
+| `domain/status.mjs`            | `status.json` 的形状；`verify-deployed.mjs` 判据与部署去重（比字段集合与时区列表，不比时间值）                 |
+| `domain/compat.mjs`            | `check` 的兼容性表与「装得上吗」结论                                                                           |
+| `domain/contract.mjs`          | **build 与 check 会同时变**，这是故意的：写什么与查什么是同一张表                                              |
+| `domain/diagnosis.mjs` 的码表  | `diagnostics-baseline.json`、[../AGENTS.md](../AGENTS.md) 的降级说明、严重性测试                               |
+| `sources/*`                    | 只影响取数；domain 不需要动                                                                                    |
+| `shared/http.mjs`              | 四个入口一起变——重试与超时是全局策略                                                                           |
+| `shared/time.mjs`              | `status.json` 的 `localTimes`；时区列表在 `config.json` 的 `build.localTimeZones`                              |
+| 任一入口的退出码语义           | `.github/workflows/build-market.yml` 里对它的调用与失败处理                                                    |
+| `public/status.json` 的字段    | `verify-deployed.mjs` 的判据（`content.hash`）、部署去重（形状：字段集合 + 时区列表）、README 对 status 的描述 |

@@ -175,18 +175,25 @@ jobs:
       # The comparison covers the whole published set, not just index.json. status.json is deployed too,
       # and its shape can change while the index content does not — that happened when the record
       # gained content.hash and again when it gained per-package sizes, and deduplicating on the index
-      # alone left readers on the previous shape until some plugin happened to publish. So the record is
-      # compared after dropping `build`, which holds times and durations: those change on every run, and
-      # comparing them would deploy hourly, which is exactly what deduplication exists to prevent.
+      # alone left readers on the previous shape until some plugin happened to publish.
+      #
+      # So the record is compared by *shape*, not by value: which keys `build` carries, and which zones
+      # `localTimes` names. Times and durations change every run, and comparing them would deploy
+      # hourly, which is exactly what deduplication exists to prevent. A new display field is a shape
+      # change and deploys once; a new timestamp is not.
       - name: Compare with the live index
         id: compare
         run: |
           url=$(jq -r '.market.indexUrl' config.json)
           statusurl=$(dirname "$url")/status.json
+          # Everything a reader learns, plus the set of members describing the run — never their values.
+          # `// {}` matters: a live copy written before `localTimes` existed has no such object, and
+          # asking `keys` of null is an error rather than an empty list.
+          shape='{content, plugins, fields: ((.build // {}) | keys), zones: ((.build.localTimes // {}) | keys)}'
           built=$(sha256sum public/index.json | cut -d' ' -f1)
           live=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1 || true)
-          built_status=$(jq -S 'del(.build)' public/status.json | sha256sum | cut -d' ' -f1)
-          live_status=$(curl -fsSL "$statusurl" | jq -S 'del(.build)' 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "?")
+          built_status=$(jq -S "$shape" public/status.json | sha256sum | cut -d' ' -f1)
+          live_status=$(curl -fsSL "$statusurl" | jq -S "$shape" 2>/dev/null | sha256sum | cut -d' ' -f1 || echo "?")
           echo "index:  built ${built}, live ${live:-unreachable}"
           echo "status: built ${built_status}, live ${live_status}"
           if [ -n "$live" ] && [ "$live" = "$built" ] && [ "$live_status" = "$built_status" ]; then
@@ -194,7 +201,7 @@ jobs:
             echo "the published set is unchanged; the deployment is skipped"
           elif [ -n "$live" ] && [ "$live" = "$built" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "the index is unchanged but the build record is not — deploying so readers see it"
+            echo "the index is unchanged but the build record's shape is not — deploying so readers see it"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "the index changed; it will be deployed"

@@ -139,4 +139,6 @@ build 每次先整个删掉再写。工程配置（`package.json`、`pnpm-lock.y
 - `pnpm run drift` 看组织仓与已发布版本是否脱节（合并了没发版会出现在这里）。
 
 线上靠三处：`verify` job（抓真实 URL 比对 **内容哈希**）、`/status.json`、以及那次 Actions 的结论
-（`deploy` 与 `verify` 被 skipped 且 `build` 绿，表示内容没变、无需部署）。
+（`deploy` 与 `verify` 被 skipped 且 `build` 绿，表示内容没变、无需部署）。去重比的是 `status.json` 的
+**形状**（`build` 有哪些字段、`localTimes` 有哪些时区），不比时间值：所以新增显示字段会部署一次，
+纯时间变化不会。判据在 `.github/workflows/build-market.yml` 的 `Compare with the live index`。
