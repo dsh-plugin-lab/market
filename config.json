@@ -46,6 +46,7 @@
   "build": {
     "includePrerelease": true,
     "maxVersionsPerPlugin": 0,
+    "localTimeZones": ["Asia/Shanghai", "Europe/London", "America/Los_Angeles"],
     "keywordBlocklist": ["dsh", "deepseek-harness", "dsh-plugin"],
     "maxKeywords": 12,
     "pruneUnusedMetadata": true

@@ -98,6 +98,36 @@ export function sortKeysOf(explicit, { repository, starsFor, report }) {
   return values
 }
 
+/**
+ * A curation declaration a plugin points at must exist, or the Discover page has a dead filter: an
+ * entry whose `category` is `"ui"` while `metadata.categories` never declares `ui` renders an
+ * unfilterable chip. This is the one inconsistency that is cheap to catch and impossible to see.
+ */
+export function validateDeclarations(metadata, plugins) {
+  for (const plugin of plugins) {
+    const { category, labels, sortKeys } = plugin.metadata
+    if (category !== undefined && metadata.categories[category] === undefined) {
+      throw new Error(
+        `${plugin.name}: category "${category}" is not declared in config.json metadata.categories`,
+      )
+    }
+    for (const label of labels) {
+      if (metadata.labels[label] === undefined) {
+        throw new Error(
+          `${plugin.name}: label "${label}" is not declared in config.json metadata.labels`,
+        )
+      }
+    }
+    for (const id of Object.keys(sortKeys)) {
+      if (metadata.sortKeys[id] === undefined) {
+        throw new Error(
+          `${plugin.name}: sort key "${id}" is not declared in config.json metadata.sortKeys`,
+        )
+      }
+    }
+  }
+}
+
 /** Declarations no plugin references are dropped, so the Discover page shows no empty filter. */
 export function pruneMetadata(metadata, plugins, enabled, report, quiet = new Set()) {
   if (!enabled) return metadata

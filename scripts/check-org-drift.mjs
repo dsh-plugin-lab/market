@@ -24,19 +24,10 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
 import semver from 'semver'
-import { organizationRepositories, repositoryManifest } from './lib/sources/github.mjs'
+import { organizationRepositories, manifestOf } from './lib/sources/github.mjs'
 import { discoverPlugins } from './lib/sources/discovery.mjs'
-import { json } from './lib/shared/http.mjs'
+import { packument } from './lib/sources/npm.mjs'
 import { ROOT, flag, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
-
-/** The manifest of a repository, or `undefined` when it has none — absence is the ordinary case. */
-async function manifestOf(repository) {
-  try {
-    return await repositoryManifest(repository.full_name, repository.default_branch ?? 'main')
-  } catch {
-    return undefined
-  }
-}
 
 async function main() {
   const config = JSON.parse(await readFile(join(ROOT, 'config.json'), 'utf8'))
@@ -57,7 +48,16 @@ async function main() {
   const findings = []
   const plugins = []
   for (const repository of repositories) {
-    const manifest = await manifestOf(repository)
+    let manifest
+    try {
+      // A manifest we could not read is not a repository that has none. Reporting the first as the
+      // second is how a slow request turns into "that plugin was never listed" — the one wrong answer
+      // this check exists to avoid giving.
+      manifest = await manifestOf(repository.full_name, repository.default_branch ?? 'main')
+    } catch (error) {
+      warn(`${repository.full_name}: manifest unreadable (${error.message}) — not judged`)
+      continue
+    }
     if (manifest === undefined || typeof manifest !== 'object') continue
     if (manifest.dsh === undefined) continue
     if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') continue
@@ -73,10 +73,10 @@ async function main() {
       })
       continue
     }
-    const packument = await json(
-      `https://registry.npmjs.org/${plugin.name.replace('/', '%2F')}`,
-    ).catch(() => undefined)
-    const published = packument?.['dist-tags']?.latest
+    const published = await packument(plugin.name).then(
+      (body) => body['dist-tags']?.latest,
+      () => undefined,
+    )
     if (typeof published !== 'string') {
       findings.push({
         code: 'unpublished',
