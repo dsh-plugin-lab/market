@@ -62,7 +62,8 @@
    （`[market] the index build is failing`），下一次成功自动关掉。**「没人报错」不等于「跑绿了」**：
    结论在 Actions 和那条 issue 里，不在收件箱里。
 3. **`status.json` 才是「这份索引多新」的答案。** 部署只在内容变化时发生，`deploy` 被 skipped 是设计而非假绿，
-   判据在 `build`。索引自己不带时间。
+   判据在 `build`。索引自己不带时间。定时构建会被 GitHub 排队，**索引陈旧不要靠调高频率治**，
+   为什么调频率没用、实测多慢 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 4. **全量列出（含预发布），只有 npm 标了 deprecated 的不列。** `build.maxVersionsPerPlugin: 0` 就是「不设上限」，
    `build.includePrerelease: true` 让预发布也进索引。想只留最近 N 个就把 `maxVersionsPerPlugin` 写成 N：届时更旧的
    装不到，要用 `pnpm add <name>@<version>` 直装，别去索引里找。deprecated 的版本在套上限**之前**就被剔除，

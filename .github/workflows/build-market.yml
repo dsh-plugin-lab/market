@@ -9,7 +9,9 @@
 #   - `push` on main, on the files that define the index, so a curation change goes live immediately;
 #   - `pull_request`, so a curation change is validated *before* it can reach main (build only, no deploy);
 #   - `workflow_dispatch`, for a rebuild after a plugin release;
-#   - `schedule`, hourly, because a publish changes nothing in this repository.
+#   - `schedule`, hourly. GitHub throttles cron on busy public repositories, so these runs are a queue
+#     entry rather than an hourly promise — do not raise the frequency to cure a stale index. Why, and
+#     the measured cadence, are in docs/ARCHITECTURE.md.
 #
 # Build and deploy are separate jobs on purpose: the deploy job is the only one that holds a Pages
 # environment and a write scope, so a pull request can run the whole build and validation with a
@@ -17,7 +19,7 @@
 #
 # Deployment is also skipped when `index.json` is byte-identical to what is already live. That keeps
 # the deployment history meaningful ("the content changed here") instead of 24 identical deploys a
-# day, and it is why `status.json` carries a `builtAt` — to answer "how old is this index?" the
+# day, and it is why `status.json` carries a build record — to answer "how old is this index?" the
 # deployment history no longer does.
 #
 # The deploy publishes `public/` as an artifact rather than committing the index back here: the index

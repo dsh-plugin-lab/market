@@ -55,8 +55,15 @@ Three rules follow, and they are the whole of the data policy:
   because format 1 has no member for it and the reader would drop it silently anyway.
 - **The build is a projection, not a database.** Each run recomputes everything from npm and the two
   hand-written files. There is no incremental state to get out of sync, no cache to invalidate, and no
-  way for yesterday's failure to leak into today's output. The cost is refetching every package hourly;
-  the benefit is that any run can be reproduced from its inputs alone.
+  way for yesterday's failure to leak into today's output. The cost is refetching every package on
+  every run; the benefit is that any run can be reproduced from its inputs alone.
+- **The schedule is a queue entry, not a promise.** The workflow asks for an hourly build, and GitHub
+  throttles cron on busy public repositories: measured over three days, 14 runs landed where 72 were
+  configured, at gaps of 3.3 to 5.7 hours. That is why the front page says "several times a day"
+  rather than "hourly" — it states what a reader gets. Raising the frequency does not buy freshness,
+  because the throttle answers load rather than intent; release-time freshness would need the plugin
+  repositories to send a `repository_dispatch`, which is a decision about that organization, not this
+  one. A stale index is visible without a faster clock, because `status.json` carries the build time.
 - **Facts are fetched, decisions are written.** Sort keys, categories and overrides are decisions and
   live in `config.json`; versions, timestamps and texts are facts and are never stored here. An
   override that merely repeats a published fact is reported as dead weight (`override-redundant`)

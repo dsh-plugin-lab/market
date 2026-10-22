@@ -27,11 +27,9 @@ on npm are left out — open one and pick the version you want.
 
 ## How often it updates
 
-The index is rebuilt every hour, and whenever this repository changes. Most of the time it updates
-because a plugin published a new version in its own repository, not because someone committed here.
-If nothing new was published, the index stays exactly as it is.
-
-`index.json` has no timestamp; [status.json](https://dsh-plugin-lab.github.io/market/status.json)
-records when the current copy was built.
+The index rebuilds itself: several times a day, and right after any change that affects what it lists.
+Nobody has to trigger a build. `index.json` carries no timestamp;
+[status.json](https://dsh-plugin-lab.github.io/market/status.json) records when the copy you are
+reading was built.
 
 Maintainers: [AGENTS.md](AGENTS.md).
