@@ -63,10 +63,10 @@
    结论在 Actions 和那条 issue 里，不在收件箱里。
 3. **`status.json` 才是「这份索引多新」的答案。** 部署只在内容变化时发生，`deploy` 被 skipped 是设计而非假绿，
    判据在 `build`。索引自己不带时间。
-4. **只列最近五个版本（含预发布），更旧的装不到。** `build.maxVersionsPerPlugin: 5` +
-   `build.includePrerelease: true` 决定这一点。回滚到第五个之前、或装未列出的预发布，用
-   `pnpm add <name>@<version>` 直装，别去索引里找。要恢复全量把 `maxVersionsPerPlugin` 写 `0`。
-   **默认版本不受影响**：读者永远选「最高的非预发布版本」，列了预发布也不会让它变成默认。
+4. **全量列出（含预发布），只有 npm 标了 deprecated 的不列。** `build.maxVersionsPerPlugin: 0` 就是「不设上限」，
+   `build.includePrerelease: true` 让预发布也进索引。想只留最近 N 个就把 `maxVersionsPerPlugin` 写成 N：届时更旧的
+   装不到，要用 `pnpm add <name>@<version>` 直装，别去索引里找。deprecated 的版本在套上限**之前**就被剔除，
+   所以上限数的是「读者真能装的版本」。**默认版本不受影响**：读者永远选「最高的非预发布版本」，列了预发布也不会让它变成默认。
 5. **降级不报错，但会被棘轮抓住。** 遇到新 code：先弄清它是不是真问题，是真问题就修，不是就**在同一次提交里**
    把 code 加进 [diagnostics-baseline.json](diagnostics-baseline.json)。基线里留着不再发生的 code 也会提示，随手删掉。
    `stars-unavailable` / `dsh-version-unavailable` 属环境相关，只报告不进棘轮。

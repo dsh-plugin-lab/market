@@ -66,12 +66,15 @@ Three rules follow, and they are the whole of the data policy:
 
 - **The index is generated and never committed.** A committed copy would be a second source of truth
   that goes stale the moment a plugin publishes. `public/` is ignored and deployed as an artifact.
-- **Five versions per plugin, prereleases included.** Enough history to roll back one or two releases,
-  small enough that the index stays a few kilobytes rather than a full release archive. It does not
-  change what DSH installs by default: the reader still picks the highest stable version. Anything
-  older than the fifth is deliberately not advertised; the reader offers the listed versions, and how to
-  install one from the command line belongs to the organization's own page rather than here.
-  `build.maxVersionsPerPlugin` and `build.includePrerelease` reverse it.
+- **Every published version, prereleases included; deprecated ones are not.** The cap exists —
+  `build.maxVersionsPerPlugin` — and it is set to `0`, which means no cap: a package's whole published
+  history is a few kilobytes, so history is not where bytes are worth saving. What is excluded is not
+  policy but the registry saying "do not install this": a deprecated version carries a reason, and
+  format 1 has no member to mark it with, so listing it would invite exactly that failure. Deprecations
+  are dropped before any cap is applied, so a cap counts versions a reader can actually install. None
+  of this changes what DSH installs by default: the reader still picks the highest stable version, and
+  listing prereleases never makes one the default. `build.maxVersionsPerPlugin: N` and
+  `build.includePrerelease` reverse it.
 - **Deployment happens only when the published set changed.** The deployment history then means "the
   content changed here" instead of 24 identical deploys a day. "The published set" is both files a
   reader fetches: the index by its bytes, and `status.json` by its content with `build` removed. Shape can
