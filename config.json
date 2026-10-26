@@ -5,8 +5,8 @@
       "zh": "DSH 插件实验室"
     },
     "description": {
-      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, and additions to the interface.",
-      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型，以及界面增强。"
+      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, additions to the interface, and repairs to how a turn runs.",
+      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型、界面增强，以及让一轮对话不中途停下的修补。"
     },
     "indexUrl": "https://dsh-plugin-lab.github.io/market/index.json"
   },
@@ -20,6 +20,9 @@
       },
       "ui": {
         "title": { "en": "Interface", "zh": "界面" }
+      },
+      "runtime": {
+        "title": { "en": "Runtime", "zh": "运行时" }
       }
     },
     "labels": {
@@ -28,9 +31,6 @@
       },
       "online": {
         "title": { "en": "Online", "zh": "在线" }
-      },
-      "zero-config": {
-        "title": { "en": "Zero config", "zh": "零配置" }
       },
       "byok": {
         "title": { "en": "BYOK", "zh": "自备密钥" }
@@ -55,7 +55,8 @@
     "category": {
       "models": ["llm", "models", "workbuddy"],
       "ui": ["ui", "sidebar", "balance"],
-      "tools": ["search", "zhihu", "debugging", "diagnostics", "tool"]
+      "tools": ["search", "zhihu", "debugging", "diagnostics", "tool"],
+      "runtime": ["reasoning", "auto-continue", "rescue"]
     }
   },
   "plugins": {
@@ -66,18 +67,23 @@
     },
     "dsh-ds-balance": {
       "category": "ui",
-      "labels": ["online", "zero-config"],
+      "labels": ["online"],
+      "sortKeys": { "stars": { "githubStars": true } }
+    },
+    "dsh-dsml-rescue": {
+      "category": "runtime",
+      "labels": ["local"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-plugin-debugging": {
       "category": "tools",
-      "labels": ["local", "zero-config"],
+      "labels": ["local"],
       "keywords": ["debugging", "diagnostics", "reload", "troubleshooting"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-workbuddy-bridge": {
       "category": "models",
-      "labels": ["local", "zero-config"],
+      "labels": ["local"],
       "sortKeys": { "stars": { "githubStars": true } }
     }
   }
