@@ -83,7 +83,7 @@
     },
     "dsh-workbuddy-bridge": {
       "category": "models",
-      "labels": ["local"],
+      "labels": ["online"],
       "sortKeys": { "stars": { "githubStars": true } }
     }
   }
