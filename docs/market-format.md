@@ -202,8 +202,8 @@ real index carries every plugin, every published version, and every group a plug
   // config.json market.title. Localized, and `en` is mandatory.
   "title": { "en": "DSH Plugin Lab", "zh": "DSH 插件实验室" },
   "description": {
-    "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, additions to the interface, and repairs to how a turn runs.",
-    "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型、界面增强，以及让一轮对话不中途停下的修补。"
+    "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, additions to the interface, and changes to how the agent behaves.",
+    "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型、界面增强，以及 agent 行为层面的调整。"
   },
   "metadata": {
     // Declarations. Every id a plugin references below must appear here.

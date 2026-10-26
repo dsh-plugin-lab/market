@@ -5,8 +5,8 @@
       "zh": "DSH 插件实验室"
     },
     "description": {
-      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, additions to the interface, and repairs to how a turn runs.",
-      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型、界面增强，以及让一轮对话不中途停下的修补。"
+      "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, additions to the interface, and changes to how the agent behaves.",
+      "zh": "dsh-plugin-lab 出品的 DeepSeek Harness 插件：模型可调用的工具、可接入的模型、界面增强，以及 agent 行为层面的调整。"
     },
     "indexUrl": "https://dsh-plugin-lab.github.io/market/index.json"
   },
@@ -21,8 +21,8 @@
       "ui": {
         "title": { "en": "Interface", "zh": "界面" }
       },
-      "runtime": {
-        "title": { "en": "Runtime", "zh": "运行时" }
+      "behavior": {
+        "title": { "en": "Behavior", "zh": "行为" }
       }
     },
     "labels": {
@@ -56,7 +56,7 @@
       "models": ["llm", "models", "workbuddy"],
       "ui": ["ui", "sidebar", "balance"],
       "tools": ["search", "zhihu", "debugging", "diagnostics", "tool"],
-      "runtime": ["reasoning", "auto-continue", "rescue"]
+      "behavior": ["reasoning", "auto-continue", "rescue"]
     }
   },
   "plugins": {
@@ -71,7 +71,7 @@
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-dsml-rescue": {
-      "category": "runtime",
+      "category": "behavior",
       "labels": ["local"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
