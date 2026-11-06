@@ -120,7 +120,7 @@ function compatibilityRows(index, dsh) {
       plugin: plugin.name,
       versions: String(plugin.versions.length),
       default: String(defaultVersion(plugin)),
-      engines: newest.engines?.dsh ?? 'any',
+      engines: newest.engines?.dsh ?? 'undeclared',
       runsOn: runsOnCount(plugin, dsh),
       icon: plugin.icon === undefined ? '-' : 'yes',
     }
