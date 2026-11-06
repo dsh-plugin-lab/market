@@ -7,7 +7,7 @@
  * about, which is what keeps curation and assembly free of registry details.
  *
  * Two kinds of failure stay distinct:
- *   - a **missing** fact degrades and is reported as a code (the market still works);
+ *   - a **missing** fact degrades and is reported as a code (the index still works);
  *   - a **contradiction** throws (the entry would be a lie).
  */
 import semver from 'semver'
@@ -26,8 +26,8 @@ const fail = (message) => {
  *
  * Three policies meet here, and they are not the same kind of decision:
  *
- *   - **`includePrerelease` / `maxVersionsPerPlugin`** are market policy from `config.json`: how much
- *     history to advertise. Changing them changes what the market offers, nothing about the package.
+ *   - **`includePrerelease` / `maxVersionsPerPlugin`** are index policy from `config.json`: how much
+ *     history to advertise. Changing them changes what the index offers, nothing about the package.
  *   - **A deprecation is not policy, it is the registry saying "do not use this"** — and it is the one
  *     exclusion with a moral weight behind it: npm carries a reason ("the client plugin fails to load
  *     and DSH cannot be opened"), and listing such a version invites exactly that failure. Format 1 has
@@ -54,7 +54,7 @@ export function selectVersions(name, packument, settings, report) {
     selected.push(version)
   }
   if (selected.length === 0) {
-    // A package that has only ever published prereleases is not a reason to take the market down.
+    // A package that has only ever published prereleases is not a reason to take the index down.
     selected.push(usable[0] ?? published[0])
     report(
       'prerelease-only',
@@ -221,7 +221,7 @@ function reportRedundantOverrides(
 }
 
 /**
- * Everything that is true about the package, independent of how this market classifies it.
+ * Everything that is true about the package, independent of how this index classifies it.
  *
  * `tarball` is `{ entries, bytes }` when the fetch succeeded and `{ unreadable }` when it did not —
  * the difference is carried as data, so nothing downstream has to infer "no locale" from a missing
@@ -304,7 +304,7 @@ export function deriveFacts({ name, explicit, settings, packument, tarball, repo
     repository,
     versions,
     languages: locale.languages,
-    // Not a degradation: the registry declared these unusable, so the market declines to offer them.
+    // Not a degradation: the registry declared these unusable, so the index declines to offer them.
     // Recorded rather than reported, because a permanent, intended condition must not become alert
     // noise — but also not silently dropped, because a version vanishing from a list needs a reason.
     excluded: { deprecated },

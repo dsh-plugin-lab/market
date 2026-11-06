@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build `public/index.json` — a plugin market index in format 1 — and the `status.json` next to it.
+ * Build `public/index.json` — a plugin index in format 1 — and the `status.json` next to it.
  *
  * This runs on a GitHub runner, where no plugin repository exists on disk, so nothing here reads a
  * plugin's checkout. Every machine fact comes from two published sources: the npm packument, and the
  * published tarball of the newest listed version (for `locale/` text and the icon the package itself
- * declares). Curation — market title, categories, labels, sort keys, each plugin's category and
+ * declares). Curation — index title, categories, labels, sort keys, each plugin's category and
  * labels — is the part no source can derive, so it lives in `config.json`.
  *
  * The file is **orchestration only**. Everything with a rule in it lives in a module:

@@ -3,12 +3,12 @@
  *
  * This is the one component whose failure is silent by design — an unreadable tarball only costs the
  * display text and the icon, so the build continues. That is exactly why it has tests: a tar format
- * the reader does not understand would otherwise degrade every entry in the market and still pass
+ * the reader does not understand would otherwise degrade every entry in the index and still pass
  * every other check.
  *
  * Two views over the same walk: `readTar` for the paths and bytes a caller needs, and
  * `readTarSizes` for how large the package is and what makes it large. The second exists because a
- * package's size is a fact about the plugin (and about how long every market build takes), and a
+ * package's size is a fact about the plugin (and about how long every index build takes), and a
  * number nobody can explain is a number nobody acts on.
  */
 

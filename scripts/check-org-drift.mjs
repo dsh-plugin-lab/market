@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Compare what the organization's repositories declare with what the market advertises.
+ * Compare what the organization's repositories declare with what the index advertises.
  *
- * The index is a photograph of npm. Between a merge and a release there is a gap the market cannot see
+ * The index is a photograph of npm. Between a merge and a release there is a gap the index cannot see
  * and therefore cannot report: the repository says 0.5.0, npm still serves 0.4.0, and every check in
  * this repository is correctly green. That gap is invisible for as long as nobody looks — one plugin
  * sat in it for two weeks because its publish was blocked on a credential nobody knew had expired.
  *
  * So this asks the other side: for every public repository in the organization, read its `package.json`
- * from the default branch, and compare the version there with the version the market lists.
+ * from the default branch, and compare the version there with the version the index lists.
  *
  * Two findings, both about drift rather than about failure:
  *
@@ -16,7 +16,7 @@
  *   - missing:     the repository is a DSH plugin (it has a `dsh` field) but discovery did not list it.
  *
  * It only reports. Deciding to release, or to list a plugin, is a human act — an automatic fix here
- * would make the market claim things nobody decided.
+ * would make the index claim things nobody decided.
  *
  * Usage: node scripts/check-org-drift.mjs [--write <file>] [--org <name>] [--strict]
  */
@@ -109,7 +109,7 @@ async function main() {
     warn(`${finding.code}: ${finding.message}`)
   }
   if (findings.length === 0)
-    ok('the market and the organization agree: nothing merged-but-unreleased, nothing missing')
+    ok('the index and the organization agree: nothing merged-but-unreleased, nothing missing')
 
   if (output !== undefined) {
     await writeFile(

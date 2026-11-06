@@ -37,7 +37,7 @@ test('the organization is derived from the index URL, not written twice', () => 
   )
 })
 
-test('a roster with no plugin is a broken discovery, not an empty market', () => {
+test('a roster with no plugin is a broken discovery, not an empty index', () => {
   assert.throws(() => validateRoster([]), /discovery is broken/u)
 })
 

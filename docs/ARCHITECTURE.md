@@ -1,4 +1,4 @@
-# dsh-plugin-lab plugin market — architecture
+# dsh-plugin-lab plugin index — architecture
 
 **This is the "why" layer.** Design decisions that should not change casually, and the constraints
 behind them. Field-level contract: [market-format.md](market-format.md). Commands and operational
@@ -6,9 +6,9 @@ traps: [AGENTS.md](../AGENTS.md). No file list and no field table lives here on 
 
 ## What it publishes
 
-One generated `index.json` in DSH's plugin market format 1, plus `icons/*` and a `status.json`, served
-from GitHub Pages. It is not a plugin and publishes no package: the code it describes is installed
-from npm.
+One generated `index.json` — format 1 of the plugin market index — plus `icons/*` and a `status.json`,
+served from GitHub Pages. It is not a plugin and publishes no package: the code it describes is
+installed from npm.
 
 ## The constraint that decides everything
 
@@ -21,16 +21,16 @@ Every machine fact comes from two published sources:
 - the published tarball of the newest listed version: `locale/*.json` for display text, and the icon
   file the package itself points at.
 
-This is also why the market cannot be fixed by editing a plugin's checkout, and why a change to a
+This is also why the index cannot be fixed by editing a plugin's checkout, and why a change to a
 plugin only reaches the index after that plugin publishes.
 
 ## Sources of truth
 
-| Input                                  | Owns                                                                                                            |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| the organization repositories          | which packages are listed (discovered), and in what order (alphabetical by package name)                        |
-| `config.json`                          | everything no source can derive: market title, categories, labels, sort keys, per-plugin curation and overrides |
-| npm (+ the GitHub API for star counts) | every fact about a published package                                                                            |
+| Input                                  | Owns                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| the organization repositories          | which packages are listed (discovered), and in what order (alphabetical by package name)                       |
+| `config.json`                          | everything no source can derive: index title, categories, labels, sort keys, per-plugin curation and overrides |
+| npm (+ the GitHub API for star counts) | every fact about a published package                                                                           |
 
 Nothing else is authoritative. Curation lives only in `config.json`; the scripts hold no display
 values, and no document keeps a second copy of the current category list.
@@ -109,7 +109,7 @@ Three rules follow, and they are the whole of the data policy:
   repository is correctly green while that gap exists. One plugin sat in it for two weeks behind an
   expired publish credential. The build therefore compares the organization's manifests with the
   registry and opens one tracking issue when they disagree. It does not release and it does not curate:
-  both are decisions, and a machine that makes them would make the market claim what nobody chose.
+  both are decisions, and a machine that makes them would make the index claim what nobody chose.
 - **A failed build opens an issue.** A scheduled workflow's failure notification reaches only whoever
   last edited the `cron` line, so a silent index would otherwise be the default outcome.
 - **Degradation is recorded outside the product.** One plugin's broken packaging must not take the

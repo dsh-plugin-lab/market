@@ -1,4 +1,4 @@
-# dsh-plugin-lab plugin market
+# dsh-plugin-lab plugin index
 
 [English](README.md) | [中文](README_zh.md)
 
@@ -7,7 +7,7 @@ Discover tab: name, description, icon and an installable version, for each plugi
 
 ## How to add it to DSH
 
-1. In **Plugins**, open **Custom plugin markets**, and turn it on.
+1. In **Plugins**, open **Custom plugin indexes**, and turn it on.
 2. Open **Plugins → Discover**, choose **Add index source**, and paste this URL:
 
    ```text

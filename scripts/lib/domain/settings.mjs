@@ -6,7 +6,7 @@
  *   - every knob gets the default that makes a bare `config.json` work, so "unset" never means
  *     "undefined behaviour" somewhere deeper;
  *   - the organization is **derived** from the published index URL instead of being written down a
- *     second time. `market.indexUrl` already says where this market lives; a separate `organization`
+ *     second time. `market.indexUrl` already says where this index lives; a separate `organization`
  *     key could disagree with it.
  *
  * Pure: no I/O, no clock. The caller reads the file.
@@ -19,7 +19,7 @@ export function organizationOf(config) {
 }
 
 /**
- * The build knobs. Defaults are chosen so a minimal `config.json` still produces a valid market:
+ * The build knobs. Defaults are chosen so a minimal `config.json` still produces a valid index:
  * every published version is listed, prereleases included, and unused declarations are pruned so the
  * Discover page never shows an empty category button.
  */

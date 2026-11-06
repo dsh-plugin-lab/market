@@ -1,4 +1,4 @@
-# Market index format 1 — field reference
+# Index format 1 — field reference
 
 **This is the contract for the produced file.** Every field, where it comes from, and the constraint
 the reader enforces. Design reasoning is in [ARCHITECTURE.md](ARCHITECTURE.md); how to run the build
@@ -94,7 +94,7 @@ install source.
 | `labels`   | string[]    | config, else keywords                   | declared in `metadata.labels`     |
 | `sortKeys` | id → number | config, or GitHub API for `githubStars` | declared ids; finite numbers      |
 
-`keywords` is the only free-form field here: it is what a user can search the market with, so it has
+`keywords` is the only free-form field here: it is what a user can search the index with, so it has
 no declaration table. `category`, `labels` and `sortKeys` do, and an undeclared id rejects the whole
 index — `scripts/build-index.mjs` already refuses to write one.
 
@@ -199,7 +199,7 @@ real index carries every plugin, every published version, and every group a plug
 ```text
 {
   "format": 1,
-  // config.json market.title. Localized, and `en` is mandatory.
+  // The index title, from config.json's market.title. Localized; `en` is mandatory.
   "title": { "en": "DSH Plugin Lab", "zh": "DSH 插件实验室" },
   "description": {
     "en": "Plugins built by dsh-plugin-lab for DeepSeek Harness: tools the model can call, models to run on, additions to the interface, and changes to how the agent behaves.",
@@ -207,7 +207,7 @@ real index carries every plugin, every published version, and every group a plug
   },
   "metadata": {
     // Declarations. Every id a plugin references below must appear here.
-    // The ids below are this market's real declarations; see config.json for the current set.
+    // The ids below are this index's real declarations; see config.json for the current set.
     "categories": { "tools": { "title": { "en": "Tools", "zh": "工具" } } },
     "labels": { "local": { "title": { "en": "Local", "zh": "本地" } } },
     "sortKeys": {

@@ -36,7 +36,7 @@ export function assembleEntry(facts, { category, labels, sortKeys }) {
  * assemble the entry.
  *
  * They stay separate functions because each answers a different question and each is worth testing on
- * its own — "what did the package publish", "how does this market classify it", "what does the
+ * its own — "what did the package publish", "how does this index classify it", "what does the
  * document say". This wrapper exists so the pipeline does not have to know the order.
  */
 export function buildEntry({

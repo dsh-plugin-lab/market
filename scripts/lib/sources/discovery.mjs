@@ -1,7 +1,7 @@
 /**
- * Which plugins the market should list, read from the organization rather than from a list.
+ * Which plugins the index should list, read from the organization rather than from a list.
  *
- * The market used to take its roster from `plugins.txt`: one npm package name per line, kept by
+ * This repository used to take its roster from `plugins.txt`: one npm package name per line, kept by
  * hand. That is a second source of truth. It has to be updated when a plugin repository is created,
  * it can name a package that no longer exists, and it can miss a repository that nobody remembered
  * to add — and none of those three show up as an error until a human looks.
