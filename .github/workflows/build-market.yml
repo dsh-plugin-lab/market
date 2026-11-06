@@ -140,7 +140,7 @@ jobs:
         if: always() && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          TITLE: '[market] the index and the organization disagree'
+          TITLE: '[index] drift from the organization'
         run: |
           if [ ! -f build/org-drift.json ]; then
             exit 0
@@ -230,7 +230,7 @@ jobs:
         if: failure() && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          TITLE: '[market] the index build is failing'
+          TITLE: '[index] build is failing'
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
@@ -248,7 +248,7 @@ jobs:
         if: success() && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          TITLE: '[market] the index build is failing'
+          TITLE: '[index] build is failing'
         run: |
           number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
             --json number,title --template '{{range .}}{{.number}}{{"\t"}}{{.title}}{{"\n"}}{{end}}' \

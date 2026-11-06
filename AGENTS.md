@@ -65,7 +65,7 @@
 1. **`dist-tags.latest` 不进索引。** format 1 没有这个成员。`build` 只拿它做一致性检查：稳定的 `latest`
    不在列出版本里就 fail，预发布的 `latest` 只 WARN。不要「顺手补一个 distTag 字段」。
 2. **定时失败只发给最后改 cron 的人。** 所以失败时工作流自己开或评论一条固定标题 issue
-   （`[market] the index build is failing`），下一次成功自动关掉。**「没人报错」不等于「跑绿了」**：
+   （`[index] build is failing`），下一次成功自动关掉。**「没人报错」不等于「跑绿了」**：
    结论在 Actions 和那条 issue 里，不在收件箱里。
 3. **`status.json` 才是「这份索引多新」的答案。** 部署只在内容变化时发生，`deploy` 被 skipped 是设计而非假绿，
    判据在 `build`。索引自己不带时间。定时构建会被 GitHub 排队，**索引陈旧不要靠调高频率治**，
