@@ -16,8 +16,12 @@ export function defaultVersion(plugin) {
 }
 
 /**
- * Whether a version runs on a given DSH, using the reader's own rule: the plugin's `engines.dsh`
- * decides alone, and prereleases participate in the range (DSH itself ships prereleases).
+ * Whether a version declares support for a given DSH, by the declared half of the reader's rule: the
+ * plugin's `engines.dsh`, with prereleases participating in the range.
+ *
+ * An absent declaration returns `true` and means **nothing is declared here** — the reader then falls
+ * back to `peerDependencies`, which an index does not carry. Callers that report coverage must not
+ * count that case as support; {@link runsOnCount} keeps it apart.
  */
 export function runsOn(version, dsh) {
   const range = version.engines?.dsh
@@ -25,9 +29,20 @@ export function runsOn(version, dsh) {
   return semver.satisfies(dsh, range, { includePrerelease: true })
 }
 
-/** How many listed versions declare support for `dsh`, and how many there are. `-` when unknown. */
+/** Whether a version declares `engines.dsh` at all — the difference between "runs" and "unjudged". */
+export function declaresEngines(version) {
+  return version.engines?.dsh !== undefined
+}
+
+/**
+ * How many listed versions declare support for `dsh`, out of how many. `-` when there is no DSH version
+ * to compare against; versions with no declaration are reported separately, never as support.
+ */
 export function runsOnCount(plugin, dsh) {
   if (dsh === undefined) return '-'
-  const supported = plugin.versions.filter((version) => runsOn(version, dsh)).length
-  return `${supported}/${plugin.versions.length}`
+  const declared = plugin.versions.filter(declaresEngines)
+  const supported = declared.filter((version) => runsOn(version, dsh)).length
+  const undeclared = plugin.versions.length - declared.length
+  const coverage = `${supported}/${plugin.versions.length}`
+  return undeclared === 0 ? coverage : `${coverage} +${undeclared} undeclared`
 }

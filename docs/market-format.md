@@ -113,12 +113,12 @@ The icon is copied from the published tarball, so what users see is exactly what
 
 ## Version object
 
-| Member             | Type   | Req. | Source                           | Constraint                              |
-| ------------------ | ------ | ---- | -------------------------------- | --------------------------------------- |
-| `version`          | string | yes  | registry `versions`              | exact SemVer, unique in the plugin      |
-| `publishTimestamp` | number | yes  | registry `time[version]` / 1000  | integer **Unix seconds**, `[0, 10^11)`  |
-| `source`           | object | yes  | config type + registry `gitHead` | `npm` or `git`, see below               |
-| `engines`          | object | no   | registry `engines.dsh`           | `{ "dsh"?: SemVer range }`, may be `{}` |
+| Member             | Type   | Req. | Source                           | Constraint                                                                 |
+| ------------------ | ------ | ---- | -------------------------------- | -------------------------------------------------------------------------- |
+| `version`          | string | yes  | registry `versions`              | exact SemVer, unique in the plugin                                         |
+| `publishTimestamp` | number | yes  | registry `time[version]` / 1000  | integer **Unix seconds**, `[0, 10^11)`                                     |
+| `source`           | object | yes  | config type + registry `gitHead` | `npm` or `git`, see below                                                  |
+| `engines`          | object | no   | registry `engines.dsh`           | `{ "dsh"?: SemVer range }`, may be `{}`; the shape is enforced — see below |
 
 `publishTimestamp` is the only timestamp in the format, and it is in seconds. Milliseconds are not
 normalized: a value three digits too long simply fails the range check.
@@ -146,11 +146,17 @@ The git form pins each version to its own commit:
 
 ### `engines.dsh`
 
-A SemVer range of the DSH versions the plugin version runs on. Absent means any. Two constraints:
+A SemVer range of the DSH versions the plugin version runs on. Since DSH `0.2.1-alpha.4` the host decides
+compatibility by this declaration alone: a package that declares `engines.dsh` has its
+`@deepseek-ai/dsh*` peer ranges ignored outright, and only an **absent** declaration falls back to those
+peers. The index carries no `peerDependencies`, so an absent declaration is a case this repository cannot
+judge — it is not "any". Three constraints:
 
 - it must be a **valid SemVer range** (the build validates with `semver.validRange` before writing);
 - it must **not** be a `workspace:` range — those are local development artifacts that never exist
-  in a published package, and the reader rejects them.
+  in a published package, and the reader treats one as incompatible;
+- `engines` must be an object and `engines.dsh` a string. Any other shape — a bare string, a number, a
+  `null` — makes the manifest unreadable, and the host refuses the install.
 
 The range is the plugin's own declaration, copied from its published manifest. It is what decides
 whether an entry shows as installable in DSH, so it changes only when that plugin publishes a
@@ -248,7 +254,8 @@ real index carries every plugin, every published version, and every group a plug
           "publishTimestamp": 1792407068,
           // npm by default; a git source would carry url, commit and optional path here.
           "source": { "type": "npm" },
-          // Copied from the published manifest's engines.dsh. `{}` means any DSH.
+          // Copied from the published manifest's engines.dsh. `{}` is an absent declaration: the host
+          // then falls back to the package's @deepseek-ai/dsh* peer ranges, which an index never carries.
           "engines": { "dsh": "^0.1.7-rc.1 || ^0.2.0-rc.1 || ^0.2.1-rc.1" }
         }
       ]
