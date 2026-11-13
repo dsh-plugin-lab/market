@@ -16,10 +16,12 @@
  *   - `environment` — depends on the machine, not on the plugins (no token, a rate limit). Reported,
  *                     never ratcheted; otherwise the local run is red and CI is green for the same
  *                     code, and people learn to ignore both.
- *   - `fatal`       — no honest degraded output exists (bad inputs, a package that is not published,
- *                     a document the reader would reject). Those **throw** and never reach this
- *                     table; they are listed in docs/ARCHITECTURE.md so that the answer to "what is
- *                     fatal?" also has one home.
+ *   - `fatal`       — no honest degraded output exists (bad inputs, a malformed name, a document the
+ *                     reader would reject). Those **throw** and never reach this table; they are
+ *                     listed in docs/ARCHITECTURE.md so that the answer to "what is fatal?" also has
+ *                     one home. A package npm has no name for is **not** on that list: a repository
+ *                     exists before its first release, so an unpublished plugin is skipped and, when
+ *                     curation had promised it, recorded as `curation-unpublished`.
  *
  * This is deliberately **not** part of `index.json`. Format 1 defines no member for build quality,
  * the reader drops unknown members silently, and mixing the two meanings into one document would
@@ -45,6 +47,8 @@ export const CODES = {
   'override-redundant': 'config.json overrides a field the registry already publishes identically.',
   'curation-orphaned':
     'config.json curates a plugin that discovery did not find — either the repository was removed or renamed, or discovery failed for it.',
+  'curation-unpublished':
+    'config.json curates a plugin that npm has no such name for, so the entry it asks for cannot be built.',
 }
 
 /**

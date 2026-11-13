@@ -24,15 +24,30 @@ const DEFAULTS = {
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 /**
- * One request, retried `attempts` times on any failure. Returns the `Response`; a non-2xx answer is a
- * failure, because every caller here wants either a body or an explanation.
+ * Whether another attempt could plausibly answer differently.
+ *
+ * A 500 or a timeout might; a 404 will not — the server has already told us the thing is not there,
+ * and asking twice more only spends two requests to hear it again. That distinction matters beyond
+ * politeness: the caller needs to tell "npm never published this name" (an answer it can act on) from
+ * "the network broke" (which it must not swallow).
+ */
+const retryable = (status) => status === undefined || status === 429 || status >= 500
+
+/**
+ * One request, retried `attempts` times on a *retryable* failure. Returns the `Response`; a non-2xx
+ * answer is a failure, because every caller here wants either a body or an explanation.
+ *
+ * An error that carries `status` means the server answered. Callers branch on it — `sources/npm.mjs`
+ * treats 404 as "not published" rather than as a transport failure — so it is part of the contract,
+ * not an implementation detail.
  */
 export async function request(url, options = {}) {
   const settings = { ...DEFAULTS, ...options }
   let lastError
   for (let attempt = 1; attempt <= settings.attempts; attempt += 1) {
+    let response
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         headers: {
           accept: settings.accept,
           'user-agent': settings.userAgent,
@@ -41,12 +56,19 @@ export async function request(url, options = {}) {
         redirect: settings.redirect,
         signal: AbortSignal.timeout(settings.timeoutMs),
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
-      return response
     } catch (error) {
       lastError = error
       if (attempt < settings.attempts) await sleep(settings.backoffMs * attempt)
+      continue
     }
+    if (response.ok) return response
+    const answered = Object.assign(
+      new Error(`${url}: HTTP ${response.status} ${response.statusText}`),
+      { status: response.status },
+    )
+    if (!retryable(response.status)) throw answered
+    lastError = answered
+    if (attempt < settings.attempts) await sleep(settings.backoffMs * attempt)
   }
   throw new Error(`${url}: ${lastError?.message ?? 'request failed'}`)
 }

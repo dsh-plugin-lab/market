@@ -59,3 +59,32 @@ export function compareRoster({ curated, discovered }) {
     uncurated: discovered.filter((name) => !curatedSet.has(name)).sort(),
   }
 }
+
+/**
+ * Which discovered plugins the index can actually list, split by whether anybody promised them.
+ *
+ * A repository exists before its first release — it has to, because the `package.json` that npm would
+ * publish is the thing being created — so "discovered, but npm has no such name" is the normal state
+ * of a brand-new repository rather than a fault. Building an entry for it is impossible (there is no
+ * packument, no tarball, no version), and failing the whole build over it takes every other plugin
+ * off the index too: one repository waiting for its first release would freeze the index for
+ * everyone. Neither answer is acceptable, so the two cases are separated by **whether curation
+ * already promised the entry**:
+ *
+ *   - `absent`, not curated — nothing was promised. Skip it and say so. A reader loses nothing.
+ *   - `promisedButAbsent` — `config.json` says "show this plugin" and the index cannot. That is the
+ *     same shape as `curation-orphaned`: a listing the curation asks for and the build cannot
+ *     produce. It is reported as a degradation, not silently dropped.
+ *
+ * `listed` keeps discovery order (alphabetical by package name), so the index stays reproducible.
+ */
+export function partitionByPublication({ discovered, curated, unpublished }) {
+  const discoveredSet = new Set(discovered)
+  const curatedSet = new Set(curated)
+  const absent = new Set(unpublished.filter((name) => discoveredSet.has(name)))
+  return {
+    listed: discovered.filter((name) => !absent.has(name)),
+    absent: discovered.filter((name) => absent.has(name)),
+    promisedButAbsent: discovered.filter((name) => absent.has(name) && curatedSet.has(name)),
+  }
+}
