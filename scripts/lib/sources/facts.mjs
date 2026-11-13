@@ -14,18 +14,26 @@
  * Two facts are allowed to be absent rather than fatal, because both have an honest degraded form: an
  * unreadable tarball still leaves the registry's text, and an unreadable star count still leaves the
  * plugin listed without that sort key.
+ *
+ * A third absence is not a degradation at all: **a plugin repository that has no release yet**. A
+ * package cannot be published before its `package.json` exists, so a brand-new repository is
+ * unpublished for as long as it takes its author to cut a release — and that is the normal order of
+ * operations, not a fault. `factsFor` reports it as `{ unpublished: true }` and builds nothing; what
+ * that means for the index (skip, or complain because curation already promised an entry) is the
+ * entry point's decision.
  */
 import semver from 'semver'
-import { packument as readPackument, tarballEntries } from './npm.mjs'
+import { packumentIfPublished, tarballEntries } from './npm.mjs'
 
 /**
- * `{ published, tarball, counts }`.
+ * `{ published, tarball, counts }`, or `{ unpublished: true }` when npm has no such name.
  *
  * `tarball` is `{ entries, sizes, bytes }` or `{ unreadable }`; `counts` maps `owner/repo` to a number
  * or to `undefined` when the lookup failed.
  */
 export async function factsFor({ name, explicit, stars, targetsFor = () => [], report }) {
-  const published = await readPackument(name)
+  const published = await packumentIfPublished(name)
+  if (published === undefined) return { unpublished: true }
 
   // Which tarball to read is `dist-tags.latest` — the version `npm install` would give you today —
   // because locale text and the icon describe what a reader is about to install. Falling back to the

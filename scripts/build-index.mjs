@@ -28,7 +28,7 @@ import { buildEntry } from './lib/domain/assemble.mjs'
 import { findUndefinedMembers } from './lib/domain/contract.mjs'
 import { marketIndex } from './lib/domain/document.mjs'
 import { pruneMetadata, starTargets, validateDeclarations } from './lib/domain/curation.mjs'
-import { compareRoster, validateRoster } from './lib/domain/roster.mjs'
+import { compareRoster, partitionByPublication, validateRoster } from './lib/domain/roster.mjs'
 import { normaliseSettings, organizationOf } from './lib/domain/settings.mjs'
 import { buildStatus } from './lib/domain/status.mjs'
 import { ROOT, info, ok, reportFatal, warn } from './lib/shared/cli.mjs'
@@ -92,6 +92,38 @@ async function factsOf(names, config, settings) {
   })
 }
 
+/**
+ * Drop the plugins npm has no release for, and say which of them somebody had already promised.
+ *
+ * A repository is created before its first release, so this state is ordinary. An unpublished plugin
+ * that nobody curated is simply skipped; one that `config.json` curates is a listing the curation
+ * asked for and the build cannot produce, and it is recorded the same way a vanished repository is.
+ * If nothing is left, that is not an empty market — it means publication or discovery is broken, and
+ * an index with no plugins would deploy as if that were the truth.
+ */
+function dropUnpublished(facts, config) {
+  const { listed, absent, promisedButAbsent } = partitionByPublication({
+    discovered: facts.map((fact) => fact.name),
+    curated: Object.keys(config.plugins ?? {}),
+    unpublished: facts.filter((fact) => fact.unpublished === true).map((fact) => fact.name),
+  })
+  for (const name of absent) {
+    const promised = promisedButAbsent.includes(name)
+    const message = `${name}: no such package on npm — skipped (publish it, then this entry appears)`
+    if (!promised) {
+      warn(message)
+      continue
+    }
+    report('curation-unpublished', `${message}; config.json curates it`, { plugin: name })
+  }
+  if (listed.length === 0)
+    throw new Error(
+      'no discovered plugin is published on npm — either nobody has released yet or the registry is unreachable',
+    )
+  const listedSet = new Set(listed)
+  return facts.filter((fact) => listedSet.has(fact.name))
+}
+
 /** The metadata block, with every dangling reference refused and every unused declaration dropped. */
 function metadataOf(config, plugins, settings) {
   const declared = {
@@ -153,7 +185,7 @@ async function main() {
   await rm(OUT, { recursive: true, force: true })
   await mkdir(join(OUT, 'icons'), { recursive: true })
 
-  const facts = await factsOf(names, config, settings)
+  const facts = dropUnpublished(await factsOf(names, config, settings), config)
   const built = facts.map(({ name, explicit, published, tarball, counts }) =>
     buildEntry({
       name,

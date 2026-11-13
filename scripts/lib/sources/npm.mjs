@@ -19,6 +19,26 @@ export function packument(name) {
   return json(`${NPM}/${name.replace('/', '%2F')}`)
 }
 
+/**
+ * The packument, or `undefined` when npm has never heard of the name.
+ *
+ * A repository can exist before its first release — that is the normal order, because a package
+ * cannot be published before there is a `package.json` to publish — so "not on npm yet" is an
+ * answer, not a failure. Everything else (a timeout, a 500, a rate limit) is still thrown: those are
+ * transport failures, and turning one of them into "not published" would delist a plugin because the
+ * network hiccuped.
+ *
+ * The decision of what to *do* about an unpublished plugin belongs to the caller, not here.
+ */
+export async function packumentIfPublished(name) {
+  try {
+    return await packument(name)
+  } catch (error) {
+    if (error.status === 404) return undefined
+    throw error
+  }
+}
+
 /** The newest published DSH, used by `status.json` and by the compatibility column in `check`. */
 export function latestDsh() {
   return json(`${NPM}/@deepseek-ai%2Fdsh`, {

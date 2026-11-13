@@ -123,6 +123,20 @@ Three rules follow, and they are the whole of the data policy:
   to ignore it. The codes themselves, and the severity each carries, are declared once in
   [`scripts/lib/domain/diagnosis.mjs`](../scripts/lib/domain/diagnosis.mjs); what to _do_ about a new
   one is in [AGENTS.md](../AGENTS.md), not here.
+- **A repository that has no release yet is skipped, not fatal — unless somebody curated it.** The
+  roster is discovered from the organization, but the facts come from npm, and those two can disagree
+  for one ordinary reason: a repository exists before its first release, because the `package.json` npm
+  would publish is the thing being written. Failing the build on that state meant one author who had
+  not cut a release yet froze the whole index — every other plugin went stale while a brand-new
+  repository waited. So an unpublished plugin is skipped and said out loud, and the index keeps moving.
+  The dangerous direction is not "discovered, not published" but "**curated**, not published":
+  `config.json` asked for an entry the build cannot produce, which is the same shape as a curated
+  plugin whose repository vanished, and it is recorded as `curation-unpublished` rather than dropped.
+  The line is drawn by whether a promise exists, not by whether the facts are missing — which is the
+  same distinction `curation-orphaned` already draws on the discovery side. Only "not one discovered
+  plugin is published" is fatal: that is not an empty market, it is publishing or the registry broken.
+  A 404 from the registry is therefore an answer (`packumentIfPublished`) while a timeout is still a
+  failure — turning the second into the first would delist a plugin because the network hiccuped.
 - **Display facts are passed through, not normalised.** `author`, `homepage` and `repository` appear as
   the package publishes them. When they disagree across packages, the fix belongs in those packages:
   an override here would hide the drift, not remove it.

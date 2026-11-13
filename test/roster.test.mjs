@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { compareRoster } from '../scripts/lib/domain/roster.mjs'
+import { compareRoster, partitionByPublication } from '../scripts/lib/domain/roster.mjs'
 
 test('a fully curated roster agrees with itself', () => {
   const names = ['dsh-a', 'dsh-b']
@@ -60,4 +60,66 @@ test('an empty curation listing is not an error — everything is simply uncurat
   const { orphaned, uncurated } = compareRoster({ curated: [], discovered: ['dsh-a'] })
   assert.deepEqual(orphaned, [])
   assert.deepEqual(uncurated, ['dsh-a'])
+})
+
+/*
+ * Publication, which is a third list and a third meaning.
+ *
+ * A repository is created before its first release — the `package.json` npm would publish is the thing
+ * being written — so "discovered, but npm has never heard of it" is the ordinary state of a new
+ * repository. It used to fail the whole build, which took every other plugin off the index because one
+ * author had not cut a release yet. The cases below fix the replacement rule on both sides: skipping is
+ * for the plugin nobody promised, and a curation that cannot be honoured is still a degradation.
+ */
+
+test('a plugin with no release yet is skipped, not built and not promised', () => {
+  const { listed, absent, promisedButAbsent } = partitionByPublication({
+    discovered: ['dsh-a', 'dsh-new'],
+    curated: ['dsh-a'],
+    unpublished: ['dsh-new'],
+  })
+  assert.deepEqual(listed, ['dsh-a'])
+  assert.deepEqual(absent, ['dsh-new'])
+  assert.deepEqual(promisedButAbsent, [], 'nobody curated it, so nothing was promised')
+})
+
+test('skipping unpublished plugins keeps discovery order in what remains', () => {
+  const { listed } = partitionByPublication({
+    discovered: ['dsh-a', 'dsh-b', 'dsh-c'],
+    curated: [],
+    unpublished: ['dsh-b'],
+  })
+  assert.deepEqual(listed, ['dsh-a', 'dsh-c'])
+})
+
+test('curating a plugin npm cannot serve is a promise the build cannot keep', () => {
+  // The dangerous direction. `config.json` says "show this plugin"; the entry cannot be built. Left
+  // silent, the index would look complete and be missing exactly what somebody asked to be listed.
+  const { promisedButAbsent } = partitionByPublication({
+    discovered: ['dsh-a', 'dsh-new'],
+    curated: ['dsh-a', 'dsh-new'],
+    unpublished: ['dsh-new'],
+  })
+  assert.deepEqual(promisedButAbsent, ['dsh-new'])
+})
+
+test('a name that is not in the roster at all is not a publication finding', () => {
+  // `unpublished` comes from the facts fetch, which runs on discovered names only. A stray entry here
+  // must not invent a plugin — the roster is the anchor, not this list.
+  const { listed, absent } = partitionByPublication({
+    discovered: ['dsh-a'],
+    curated: [],
+    unpublished: ['dsh-ghost'],
+  })
+  assert.deepEqual(listed, ['dsh-a'])
+  assert.deepEqual(absent, [])
+})
+
+test('everything unpublished leaves nothing to list — the caller must refuse to deploy that', () => {
+  const { listed } = partitionByPublication({
+    discovered: ['dsh-a', 'dsh-b'],
+    curated: [],
+    unpublished: ['dsh-a', 'dsh-b'],
+  })
+  assert.deepEqual(listed, [])
 })
