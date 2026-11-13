@@ -85,6 +85,12 @@
       "category": "models",
       "labels": ["online"],
       "sortKeys": { "stars": { "githubStars": true } }
+    },
+    "dsh-harness-dispatcher": {
+      "category": "tools",
+      "labels": ["local"],
+      "keywords": ["benchmark", "evaluation", "harness", "trace"],
+      "sortKeys": { "stars": { "githubStars": true } }
     }
   }
 }
