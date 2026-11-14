@@ -63,33 +63,43 @@
     "dsh-zhihu-search": {
       "category": "tools",
       "labels": ["online", "byok"],
+      "keywords": ["zhihu", "zhihu-api", "zhida", "web-search", "search", "tool"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-ds-balance": {
       "category": "ui",
       "labels": ["online"],
+      "keywords": ["deepseek", "balance", "usage", "sidebar", "account", "quota", "credits"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-dsml-rescue": {
       "category": "behavior",
       "labels": ["local"],
+      "keywords": ["reasoning", "auto-continue", "dsml", "tool-call", "reasoning-leak", "retry"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-plugin-debugging": {
       "category": "tools",
       "labels": ["local"],
-      "keywords": ["debugging", "diagnostics", "reload", "troubleshooting"],
+      "keywords": [
+        "debugging",
+        "diagnostics",
+        "hot-reload",
+        "troubleshooting",
+        "plugin-development"
+      ],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-workbuddy-bridge": {
       "category": "models",
       "labels": ["online"],
+      "keywords": ["workbuddy", "models", "llm", "bridge", "model-provider", "gateway"],
       "sortKeys": { "stars": { "githubStars": true } }
     },
     "dsh-harness-dispatcher": {
       "category": "tools",
       "labels": ["local"],
-      "keywords": ["benchmark", "evaluation", "harness", "trace"],
+      "keywords": ["benchmark", "evaluation", "harness", "ablation", "trace", "experiment"],
       "sortKeys": { "stars": { "githubStars": true } }
     }
   }
