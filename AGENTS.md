@@ -138,6 +138,7 @@ build 每次先整个删掉再写。工程配置（`package.json`、`pnpm-lock.y
 
 ## 待办
 
+- [ ] 暂不急：`config.json` 的 `plugins.<name>.keywords` 是发版前的临时双写，各仓下次发版后删掉对应条目，让 `package.json` 成为唯一来源（拼接会去重，不删也不坏）。
 - [ ] 暂无。跨仓判据是否要提索引，是组织仓的决定，不在本仓待办里。
 
 ## 验证方式
